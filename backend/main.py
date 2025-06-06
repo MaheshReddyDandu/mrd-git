@@ -8,6 +8,7 @@ import jwt
 import bcrypt
 from typing import Optional, List
 import uvicorn
+import uuid
 
 from database import get_db, engine, Base
 from models import User, Role, UserRole
@@ -19,13 +20,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Role-Based Auth API", version="1.0.0")
 
-# CORS middleware
+# CORS middleware with more permissive settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
+    allow_origins=["*"],  # Allows all origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+    expose_headers=["*"],  # Exposes all headers
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 security = HTTPBearer()
@@ -155,7 +158,7 @@ async def user_profile(current_user: User = Depends(get_current_user)):
 
 @app.post("/admin/assign-role")
 async def assign_role(
-    user_id: int,
+    user_id: uuid.UUID,
     role_name: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["admin"]))

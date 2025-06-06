@@ -2,6 +2,7 @@
 from pydantic import BaseModel, EmailStr, validator
 from typing import List, Optional
 from datetime import datetime
+import uuid
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -27,7 +28,7 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     email: str
     username: str
     is_active: bool
@@ -38,7 +39,7 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 class RoleResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     description: Optional[str] = None
     
@@ -59,7 +60,7 @@ class RoleCreate(BaseModel):
     description: Optional[str] = None
 
 class PermissionResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     description: Optional[str] = None
     resource: Optional[str] = None
@@ -69,7 +70,7 @@ class PermissionResponse(BaseModel):
         from_attributes = True
 
 class UserRoleAssignment(BaseModel):
-    user_id: int
+    user_id: uuid.UUID
     role_name: str
 
 # Forward reference resolution

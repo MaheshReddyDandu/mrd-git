@@ -1,13 +1,15 @@
 # models.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Index
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Index
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
+import uuid
 
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -27,7 +29,7 @@ class User(Base):
 class Role(Base):
     __tablename__ = "roles"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(50), unique=True, index=True, nullable=False)
     description = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -38,9 +40,9 @@ class Role(Base):
 class UserRole(Base):
     __tablename__ = "user_roles"
     
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Composite index for performance
@@ -52,7 +54,7 @@ class UserRole(Base):
 class Permission(Base):
     __tablename__ = "permissions"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = Column(String(100), unique=True, index=True, nullable=False)
     description = Column(Text)
     resource = Column(String(100), index=True)  # e.g., 'users', 'posts', 'admin'
@@ -62,9 +64,9 @@ class Permission(Base):
 class RolePermission(Base):
     __tablename__ = "role_permissions"
     
-    id = Column(Integer, primary_key=True, index=True)
-    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
-    permission_id = Column(Integer, ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    permission_id = Column(UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     __table_args__ = (
@@ -74,8 +76,8 @@ class RolePermission(Base):
 class UserSession(Base):
     __tablename__ = "user_sessions"
     
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token_hash = Column(String(255), index=True, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

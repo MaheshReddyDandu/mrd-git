@@ -7,6 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from functools import wraps
 import os
+import uuid
 
 from database import get_db
 from models import User, UserSession
@@ -43,7 +44,7 @@ def verify_token(token: str):
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return int(user_id)
+        return uuid.UUID(user_id)
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -134,7 +135,7 @@ def hash_token(token: str) -> str:
     """Hash token for storage"""
     return hashlib.sha256(token.encode()).hexdigest()
 
-async def create_user_session(user_id: int, token: str, db: Session):
+async def create_user_session(user_id: uuid.UUID, token: str, db: Session):
     """Create user session record"""
     token_hash = hash_token(token)
     expires_at = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
