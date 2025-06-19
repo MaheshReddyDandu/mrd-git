@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Determine user roles
     final roles = (_userData?['roles'] as List?)?.map((r) => r['name'] as String).toList() ?? [];
-    final isAdmin = roles.contains('admin');
+    final isAdmin = roles.contains('admin') || roles.contains('owner');
     final isManager = roles.contains('manager');
     final isEmployee = roles.contains('user');
 
