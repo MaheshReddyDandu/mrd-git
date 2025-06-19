@@ -208,20 +208,23 @@ class _AdminScreenState extends State<AdminScreen> {
     final formKey = GlobalKey<FormState>();
     final emailController = TextEditingController();
     final usernameController = TextEditingController();
-    final roleController = TextEditingController();
-    final tenantIdController = TextEditingController();
+    String? selectedRoleId;
+    List<Map<String, dynamic>> availableRoles = [];
     bool isSubmitting = false;
     String? resetToken;
     String? error;
-    bool isSuperAdmin = false;
-    // Fetch current user and set tenant ID
+    // Fetch roles from backend
     try {
-      final user = await ApiService.getCurrentUser();
-      tenantIdController.text = user['tenant_id'] ?? '';
-      final roles = (user['roles'] as List?)?.map((r) => r['name'] as String).toList() ?? [];
-      isSuperAdmin = roles.contains('owner') || roles.contains('super-admin') || roles.contains('saas-admin');
+      final roles = await ApiService.getRoles();
+      availableRoles = List<Map<String, dynamic>>.from(roles);
+      if (availableRoles.isNotEmpty) selectedRoleId = availableRoles.first['id'];
     } catch (e) {
-      // fallback: leave tenantIdController empty
+      availableRoles = [
+        {'id': 'admin', 'name': 'admin'},
+        {'id': 'manager', 'name': 'manager'},
+        {'id': 'user', 'name': 'user'},
+      ]; // fallback
+      selectedRoleId = availableRoles.first['id'];
     }
     await showDialog(
       context: context,
@@ -248,38 +251,21 @@ class _AdminScreenState extends State<AdminScreen> {
                         validator: (v) => v == null || v.isEmpty ? 'Enter username' : null,
                       ),
                       const SizedBox(height: 8),
-                      TextFormField(
-                        controller: roleController,
-                        decoration: const InputDecoration(labelText: 'Role (admin, manager, user, etc.)'),
-                        validator: (v) => v == null || v.isEmpty ? 'Enter role' : null,
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: tenantIdController,
-                        decoration: const InputDecoration(labelText: 'Tenant ID'),
-                        readOnly: !isSuperAdmin,
-                        validator: (v) => v == null || v.isEmpty ? 'Enter tenant ID' : null,
-                      ),
-                      if (resetToken != null) ...[
-                        const SizedBox(height: 16),
-                        Text('Reset Token:', style: Theme.of(context).textTheme.titleMedium),
-                        SelectableText(resetToken!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text('Share this token with the user for first login.'),
-                      ],
-                      if (error != null) ...[
-                        const SizedBox(height: 8),
-                        Text(error!, style: const TextStyle(color: Colors.red)),
-                      ],
+                DropdownButtonFormField<String>(
+                      value: selectedRoleId,
+                      items: availableRoles.map<DropdownMenuItem<String>>((role) => DropdownMenuItem<String>(
+                        value: role['id'] as String,
+                        child: Text(role['name']),
+                      )).toList(),
+                      onChanged: (val) => setState(() => selectedRoleId = val),
+                      decoration: const InputDecoration(labelText: 'Role'),
+                      validator: (v) => v == null || v.isEmpty ? 'Select a role' : null,
+                    ),
                     ],
                   ),
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
                 ElevatedButton(
                   onPressed: isSubmitting
                       ? null
@@ -290,8 +276,7 @@ class _AdminScreenState extends State<AdminScreen> {
                               final resp = await ApiService.adminAddUser(
                                 email: emailController.text,
                                 username: usernameController.text,
-                                roleName: roleController.text,
-                                tenantId: tenantIdController.text,
+                                roleId: selectedRoleId!,
                               );
                               setState(() {
                                 resetToken = resp['reset_token'];
@@ -302,6 +287,13 @@ class _AdminScreenState extends State<AdminScreen> {
                                 error = e.toString();
                                 isSubmitting = false;
                               });
+                              // Show error as a SnackBar
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(error ?? 'Failed to add user')),
+                                );
+                              }
                             }
                           }
                         },

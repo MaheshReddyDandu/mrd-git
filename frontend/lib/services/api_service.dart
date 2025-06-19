@@ -440,8 +440,7 @@ class ApiService {
   static Future<Map<String, dynamic>> adminAddUser({
     required String email,
     required String username,
-    required String roleName,
-    required String tenantId,
+    required String roleId,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/admin/add-user'),
@@ -449,14 +448,25 @@ class ApiService {
       body: jsonEncode({
         'email': email,
         'username': username,
-        'role_name': roleName,
-        'tenant_id': tenantId,
+        'role_id': roleId,
       }),
     );
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to add user: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getRoles() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/roles'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to fetch roles: ${response.body}');
     }
   }
 } 

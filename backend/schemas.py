@@ -92,7 +92,6 @@ class TenantResponse(TenantBase):
         from_attributes = True
 
 class BranchBase(BaseModel):
-    tenant_id: uuid.UUID
     name: str
     address: Optional[str] = None
     geo_fence: Optional[str] = None
@@ -106,7 +105,6 @@ class BranchResponse(BranchBase):
         from_attributes = True
 
 class DepartmentBase(BaseModel):
-    tenant_id: uuid.UUID
     branch_id: Optional[uuid.UUID] = None
     name: str
 
@@ -119,7 +117,6 @@ class DepartmentResponse(DepartmentBase):
         from_attributes = True
 
 class EmployeeBase(BaseModel):
-    tenant_id: uuid.UUID
     department_id: Optional[uuid.UUID] = None
     role_id: Optional[uuid.UUID] = None
     name: str
@@ -136,7 +133,6 @@ class EmployeeResponse(EmployeeBase):
         from_attributes = True
 
 class AttendanceBase(BaseModel):
-    tenant_id: uuid.UUID
     employee_id: uuid.UUID
     date: datetime
     clock_in: Optional[datetime] = None
@@ -153,7 +149,6 @@ class AttendanceResponse(AttendanceBase):
         from_attributes = True
 
 class PolicyBase(BaseModel):
-    tenant_id: uuid.UUID
     name: str
     type: str  # attendance, leave, penalty, etc.
     level: str  # org, branch, department, employee
@@ -169,7 +164,6 @@ class PolicyResponse(PolicyBase):
         from_attributes = True
 
 class PolicyAssignmentBase(BaseModel):
-    tenant_id: uuid.UUID
     policy_id: uuid.UUID
     branch_id: Optional[uuid.UUID] = None
     department_id: Optional[uuid.UUID] = None
@@ -185,7 +179,6 @@ class PolicyAssignmentResponse(PolicyAssignmentBase):
         from_attributes = True
 
 class RegularizationRequestBase(BaseModel):
-    tenant_id: uuid.UUID
     employee_id: uuid.UUID
     date: datetime
     reason: str
@@ -229,5 +222,4 @@ class UserSignupClient(BaseModel):
 class UserAddByAdmin(BaseModel):
     email: EmailStr
     username: str
-    role_name: str
-    tenant_id: uuid.UUID
+    role_id: str  # Accept role_id instead of role_name

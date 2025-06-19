@@ -10,6 +10,7 @@ from typing import Optional, List
 import uvicorn
 import uuid
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from database import get_db, engine, Base
 from models import User, Role, UserRole, Tenant, Branch, Department, Employee, Attendance, Policy, PolicyAssignment, RegularizationRequest
@@ -38,7 +39,7 @@ print("[SERVER] FastAPI app instance created.")
 # CORS middleware with more permissive settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8001"],  # Only allow frontend origin
+    allow_origins=["*"],  # Only allow frontend origin
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -58,33 +59,17 @@ async def startup_event():
     print("[SERVER] Startup event triggered. Initializing roles and admin user...")
     db = next(get_db())
     print("[DEBUG] DB session acquired.")
-    
-    # Create default roles
-    admin_role = db.query(Role).filter(Role.name == "admin").first()
-    print("[DEBUG] Queried for admin role.")
-    if not admin_role:
-        admin_role = Role(name="admin", description="Administrator role")
-        db.add(admin_role)
-        print("[DEBUG] Added admin role.")
-    
-    user_role = db.query(Role).filter(Role.name == "user").first()
-    print("[DEBUG] Queried for user role.")
-    if not user_role:
-        user_role = Role(name="user", description="Regular user role")
-        db.add(user_role)
-        print("[DEBUG] Added user role.")
-    
-    manager_role = db.query(Role).filter(Role.name == "manager").first()
-    print("[DEBUG] Queried for manager role.")
-    if not manager_role:
-        manager_role = Role(name="manager", description="Manager role")
-        db.add(manager_role)
-        print("[DEBUG] Added manager role.")
-    
+    tenants = db.query(Tenant).all()
+    for tenant in tenants:
+        for role_name, desc in [("admin", "Administrator role"), ("user", "Regular user role"), ("manager", "Manager role")]:
+            role = db.query(Role).filter(Role.name == role_name, Role.tenant_id == tenant.id).first()
+            if not role:
+                role = Role(name=role_name, description=desc, tenant_id=tenant.id)
+                db.add(role)
+                print(f"[DEBUG] Added {role_name} role for tenant {tenant.name}.")
     db.commit()
     print("[DEBUG] Committed roles.")
-    
-    # Create admin user
+    # (Keep admin user creation logic as is)
     admin_user = db.query(User).filter(User.email == "admin@example.com").first()
     print("[DEBUG] Queried for admin user.")
     if not admin_user:
@@ -98,12 +83,13 @@ async def startup_event():
         db.add(admin_user)
         db.commit()
         print("[DEBUG] Created and committed admin user.")
-        
-        # Assign admin role
-        user_role_assignment = UserRole(user_id=admin_user.id, role_id=admin_role.id)
-        db.add(user_role_assignment)
-        db.commit()
-        print("[DEBUG] Assigned admin role to admin user and committed.")
+        # Assign admin role (global, not tenant-specific)
+        admin_role = db.query(Role).filter(Role.name == "admin", Role.tenant_id == None).first()
+        if admin_role:
+            user_role_assignment = UserRole(user_id=admin_user.id, role_id=admin_role.id)
+            db.add(user_role_assignment)
+            db.commit()
+            print("[DEBUG] Assigned admin role to admin user and committed.")
     print("[SERVER] Startup event complete.")
 
 # Authentication endpoints
@@ -201,43 +187,38 @@ async def user_profile(current_user: User = Depends(get_current_user)):
 @app.post("/admin/assign-role")
 async def assign_role(
     user_id: uuid.UUID,
-    role_name: str,
+    role_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["admin"]))
 ):
-    user = db.query(User).filter(User.id == user_id).first()
-    role = db.query(Role).filter(Role.name == role_name).first()
-    
+    user = db.query(User).filter(User.id == user_id, User.tenant_id == current_user.tenant_id).first()
+    role = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_user.tenant_id).first()
     if not user or not role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User or role not found"
+            detail="User or role not found for this tenant"
         )
-    
     # Check if assignment already exists
     existing = db.query(UserRole).filter(
         UserRole.user_id == user_id,
         UserRole.role_id == role.id
     ).first()
-    
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Role already assigned"
         )
-    
     user_role = UserRole(user_id=user_id, role_id=role.id)
     db.add(user_role)
     db.commit()
-    
-    return {"message": f"Role {role_name} assigned to user {user.username}"}
+    return {"message": f"Role {role.name} assigned to user {user.username}"}
 
 @app.get("/roles", response_model=List[RoleResponse])
 async def get_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(["admin", "manager"]))
 ):
-    roles = db.query(Role).all()
+    roles = db.query(Role).filter(Role.tenant_id == current_user.tenant_id).all()
     return roles
 
 @app.post("/tenants", response_model=TenantResponse)
@@ -246,6 +227,11 @@ def create_tenant(tenant: TenantCreate, db: Session = Depends(get_db)):
     db.add(db_tenant)
     db.commit()
     db.refresh(db_tenant)
+    # Create default roles for this tenant
+    for role_name, desc in [("admin", "Administrator role"), ("user", "Regular user role"), ("manager", "Manager role")]:
+        role = Role(name=role_name, description=desc, tenant_id=db_tenant.id)
+        db.add(role)
+    db.commit()
     return db_tenant
 
 @app.post("/tenants/{tenant_id}/branches", response_model=BranchResponse)
@@ -493,16 +479,21 @@ def signup_client(payload: UserSignupClient, db: Session = Depends(get_db)):
     db.add(owner_user)
     db.commit()
     db.refresh(owner_user)
-    # Create owner role if not exists
-    owner_role = db.query(Role).filter(Role.name == "owner", Role.tenant_id == tenant.id).first()
-    if not owner_role:
-        owner_role = Role(name="owner", description="Tenant Owner", tenant_id=tenant.id)
-        db.add(owner_role)
-        db.commit()
-        db.refresh(owner_role)
-    # Assign owner role
-    user_role = UserRole(user_id=owner_user.id, role_id=owner_role.id)
-    db.add(user_role)
+    # Create all roles if not exist
+    role_names = ["owner", "admin", "manager", "user"]
+    role_objs = []
+    for role_name in role_names:
+        role = db.query(Role).filter(Role.name == role_name, Role.tenant_id == tenant.id).first()
+        if not role:
+            role = Role(name=role_name, description=f"{role_name.capitalize()} role", tenant_id=tenant.id)
+            db.add(role)
+            db.commit()
+            db.refresh(role)
+        role_objs.append(role)
+    # Assign all roles to owner user
+    for role in role_objs:
+        user_role = UserRole(user_id=owner_user.id, role_id=role.id)
+        db.add(user_role)
     db.commit()
     # Return JWT
     access_token = create_access_token(data={"sub": str(owner_user.id), "tenant_id": str(tenant.id)})
@@ -510,38 +501,43 @@ def signup_client(payload: UserSignupClient, db: Session = Depends(get_db)):
 
 @app.post("/admin/add-user")
 def admin_add_user(payload: UserAddByAdmin, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["owner", "admin"]))):
-    from models import Role, UserRole
-    # Check if user exists
-    existing_user = db.query(User).filter(User.email == payload.email, User.tenant_id == payload.tenant_id).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="User already exists")
-    # Create user with no password, inactive, needs_password=True
-    user = User(
-        email=payload.email,
-        username=payload.username,
-        hashed_password="",
-        is_active=False,
-        needs_password=True,
-        tenant_id=payload.tenant_id
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    # Assign role
-    role = db.query(Role).filter(Role.name == payload.role_name, Role.tenant_id == payload.tenant_id).first()
-    if not role:
-        role = Role(name=payload.role_name, tenant_id=payload.tenant_id)
-        db.add(role)
+    tenant_id = current_user.tenant_id
+    try:
+        existing_user = db.query(User).filter(User.email == payload.email, User.tenant_id == tenant_id).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="User with this email already exists")
+        user = User(
+            email=payload.email,
+            username=payload.username,
+            hashed_password="",
+            is_active=False,
+            needs_password=True,
+            tenant_id=tenant_id
+        )
+        db.add(user)
         db.commit()
-        db.refresh(role)
-    user_role = UserRole(user_id=user.id, role_id=role.id)
-    db.add(user_role)
-    db.commit()
-    # Generate reset token (for demo)
-    import uuid as uuidlib
-    token = str(uuidlib.uuid4())
-    reset_tokens[token] = str(user.id)
-    return {"user_id": str(user.id), "reset_token": token, "message": "User created. Provide reset token to user for first login."}
+        db.refresh(user)  # Ensure user.id is available
+        # Use the provided role_id directly
+        role = db.query(Role).filter(Role.id == payload.role_id, Role.tenant_id == tenant_id).first()
+        if not role:
+            raise HTTPException(status_code=400, detail="Role not found for this tenant")
+        user_role = UserRole(user_id=user.id, role_id=role.id)
+        db.add(user_role)
+        db.commit()
+        import uuid as uuidlib
+        token = str(uuidlib.uuid4())
+        reset_tokens[token] = str(user.id)
+        return {"user_id": str(user.id), "reset_token": token, "message": "User created. Provide reset token to user for first login."}
+    except IntegrityError as e:
+        db.rollback()
+        error_str = str(e.orig)
+        if 'ix_users_username' in error_str:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        if 'ix_users_email' in error_str:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        if 'ix_roles_name' in error_str:
+            raise HTTPException(status_code=400, detail="Role already exists for this tenant")
+        raise HTTPException(status_code=400, detail="Integrity error: " + error_str)
 
 @app.post("/auth/reset-password")
 def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):

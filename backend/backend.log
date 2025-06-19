@@ -1,0 +1,26 @@
+/Users/maheshreddydandu/CascadeProjects/mrd-git/backend/main.py:56: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+INFO:     Started server process [16882]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [16882]
+[SERVER] FastAPI app instance created.
+[SERVER] CORS middleware added.
+[SERVER] Starting FastAPI server on http://0.0.0.0:8000 ...
+[SERVER] Startup event triggered. Initializing roles and admin user...
+[DEBUG] DB session acquired.
+[DEBUG] Queried for admin role.
+[DEBUG] Queried for user role.
+[DEBUG] Queried for manager role.
+[DEBUG] Committed roles.
+[DEBUG] Queried for admin user.
+[SERVER] Startup event complete.
