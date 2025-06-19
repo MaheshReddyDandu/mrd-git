@@ -158,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: Row(
-        children: [
+          children: [
           if (isWide)
             NavigationRail(
               selectedIndex: _selectedIndex,
@@ -170,17 +170,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: Text(item.label ?? ''),
                       ))
                   .toList(),
-            ),
+                    ),
           Expanded(child: navScreens[_selectedIndex]),
-        ],
-      ),
+                  ],
+                ),
       bottomNavigationBar: isWide
           ? null
           : NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: _onNavTap,
               destinations: navItems,
-            ),
+      ),
     );
   }
 

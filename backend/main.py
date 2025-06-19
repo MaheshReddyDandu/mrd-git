@@ -38,7 +38,7 @@ print("[SERVER] FastAPI app instance created.")
 # CORS middleware with more permissive settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["http://localhost:8001"],  # Only allow frontend origin
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -57,27 +57,36 @@ reset_tokens = {}
 async def startup_event():
     print("[SERVER] Startup event triggered. Initializing roles and admin user...")
     db = next(get_db())
+    print("[DEBUG] DB session acquired.")
     
     # Create default roles
     admin_role = db.query(Role).filter(Role.name == "admin").first()
+    print("[DEBUG] Queried for admin role.")
     if not admin_role:
         admin_role = Role(name="admin", description="Administrator role")
         db.add(admin_role)
+        print("[DEBUG] Added admin role.")
     
     user_role = db.query(Role).filter(Role.name == "user").first()
+    print("[DEBUG] Queried for user role.")
     if not user_role:
         user_role = Role(name="user", description="Regular user role")
         db.add(user_role)
+        print("[DEBUG] Added user role.")
     
     manager_role = db.query(Role).filter(Role.name == "manager").first()
+    print("[DEBUG] Queried for manager role.")
     if not manager_role:
         manager_role = Role(name="manager", description="Manager role")
         db.add(manager_role)
+        print("[DEBUG] Added manager role.")
     
     db.commit()
+    print("[DEBUG] Committed roles.")
     
     # Create admin user
     admin_user = db.query(User).filter(User.email == "admin@example.com").first()
+    print("[DEBUG] Queried for admin user.")
     if not admin_user:
         hashed_password = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt())
         admin_user = User(
@@ -88,11 +97,13 @@ async def startup_event():
         )
         db.add(admin_user)
         db.commit()
+        print("[DEBUG] Created and committed admin user.")
         
         # Assign admin role
         user_role_assignment = UserRole(user_id=admin_user.id, role_id=admin_role.id)
         db.add(user_role_assignment)
         db.commit()
+        print("[DEBUG] Assigned admin role to admin user and committed.")
     print("[SERVER] Startup event complete.")
 
 # Authentication endpoints
