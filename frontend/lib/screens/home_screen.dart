@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'employee_screen.dart';
+import 'attendance_screen.dart';
+import 'policy_screen.dart';
+import 'regularization_screen.dart';
+import 'analytics_screen.dart';
+import 'admin_screen.dart';
+import 'change_password_screen.dart';
 import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,6 +19,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String? _error;
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = const [
+    EmployeeScreen(),
+    AttendanceScreen(),
+    PolicyScreen(),
+    RegularizationScreen(),
+    AnalyticsScreen(),
+    AdminScreen(),
+  ];
 
   @override
   void initState() {
@@ -46,6 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onNavTap(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -74,54 +97,90 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Determine user roles
+    final roles = (_userData?['roles'] as List?)?.map((r) => r['name'] as String).toList() ?? [];
+    final isAdmin = roles.contains('admin');
+    final isManager = roles.contains('manager');
+    final isEmployee = roles.contains('user');
+
+    // Navigation items (show/hide based on role)
+    final navItems = <NavigationDestination>[];
+    final navScreens = <Widget>[];
+    if (isAdmin || isManager) {
+      navItems.add(const NavigationDestination(icon: Icon(Icons.people), label: 'Employees'));
+      navScreens.add(const EmployeeScreen());
+    }
+    navItems.add(const NavigationDestination(icon: Icon(Icons.access_time), label: 'Attendance'));
+    navScreens.add(const AttendanceScreen());
+    if (isAdmin || isManager) {
+      navItems.add(const NavigationDestination(icon: Icon(Icons.policy), label: 'Policies'));
+      navScreens.add(const PolicyScreen());
+    }
+    navItems.add(const NavigationDestination(icon: Icon(Icons.edit_note), label: 'Regularization'));
+    navScreens.add(const RegularizationScreen());
+    navItems.add(const NavigationDestination(icon: Icon(Icons.analytics), label: 'Analytics'));
+    navScreens.add(const AnalyticsScreen());
+    if (isAdmin) {
+      navItems.add(const NavigationDestination(icon: Icon(Icons.admin_panel_settings), label: 'Admin'));
+      navScreens.add(const AdminScreen());
+    }
+
+    // Responsive: Sidebar for wide screens, bottom nav for mobile
+    final isWide = MediaQuery.of(context).size.width > 700;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'change_password') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ChangePasswordScreen(),
+                  ),
+                );
+              } else if (value == 'logout') {
+                _logout();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'change_password',
+                child: Text('Change Password'),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Text('Logout'),
+              ),
+            ],
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome, ${_userData?['username'] ?? 'User'}!',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Email: ${_userData?['email'] ?? 'N/A'}',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Roles: ${_userData?['roles']?.map((r) => r['name']).join(', ') ?? 'User'}',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ],
-                ),
-              ),
+      body: Row(
+        children: [
+          if (isWide)
+            NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _onNavTap,
+              labelType: NavigationRailLabelType.all,
+              destinations: navItems
+                  .map((item) => NavigationRailDestination(
+                        icon: item.icon,
+                        label: Text(item.label ?? ''),
+                      ))
+                  .toList(),
             ),
-            const SizedBox(height: 24),
-            if (_userData?['roles']?.any((r) => r['name'] == 'admin') ?? false)
-              _buildAdminSection(),
-            if (_userData?['roles']?.any((r) => r['name'] == 'manager') ?? false)
-              _buildManagerSection(),
-            _buildUserSection(),
-          ],
-        ),
+          Expanded(child: navScreens[_selectedIndex]),
+        ],
       ),
+      bottomNavigationBar: isWide
+          ? null
+          : NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _onNavTap,
+              destinations: navItems,
+            ),
     );
   }
 

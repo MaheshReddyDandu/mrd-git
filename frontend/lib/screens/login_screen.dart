@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +16,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  List<dynamic> _tenants = [];
+  String? _selectedTenantId;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
@@ -26,12 +34,10 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text,
         );
         print('Login successful. Token received: ${response['access_token']?.substring(0, 10)}...');
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Login successful!')),
           );
-          // Navigate to home screen
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const HomeScreen()),
           );
@@ -126,6 +132,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                 },
                 child: const Text('Don\'t have an account? Register'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ForgotPasswordScreen(),
+                    ),
+                  );
+                },
+                child: const Text('Forgot Password?'),
               ),
             ],
           ),

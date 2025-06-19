@@ -8,7 +8,7 @@ import os
 # Database URL with optimizations
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql://user:password@localhost:5432/roleauth_db"
+    "postgresql://maheshreddy:maheshreddy@localhost:5432/roleauth_db"
 )
 
 # Create engine with optimizations for speed

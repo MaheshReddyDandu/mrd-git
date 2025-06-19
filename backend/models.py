@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Index
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Index, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -14,8 +14,10 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
+    needs_password = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
     
     # Relationships
     roles = relationship("Role", secondary="user_roles", back_populates="users")
@@ -33,6 +35,7 @@ class Role(Base):
     name = Column(String(50), unique=True, index=True, nullable=False)
     description = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
     
     # Relationships
     users = relationship("User", secondary="user_roles", back_populates="roles")
@@ -87,3 +90,82 @@ class UserSession(Base):
         Index('idx_session_user_active', 'user_id', 'is_active'),
         Index('idx_session_token_expires', 'token_hash', 'expires_at'),
     )
+
+class Tenant(Base):
+    __tablename__ = "tenants"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, unique=True, nullable=False)
+    contact_email = Column(String, nullable=False)
+    plan = Column(String, default="basic")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Branch(Base):
+    __tablename__ = "branches"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String, nullable=False)
+    address = Column(String)
+    geo_fence = Column(String)
+
+class Department(Base):
+    __tablename__ = "departments"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    branch_id = Column(UUID(as_uuid=True), ForeignKey("branches.id"))
+    name = Column(String, nullable=False)
+
+class Employee(Base):
+    __tablename__ = "employees"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"))
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"))
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    phone = Column(String)
+    status = Column(String, default="active")
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    clock_in = Column(DateTime)
+    clock_out = Column(DateTime)
+    location = Column(String)
+    status = Column(String)
+
+class Policy(Base):
+    __tablename__ = "policies"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False)  # attendance, leave, penalty, etc.
+    level = Column(String, nullable=False)  # org, branch, department, employee
+    rules = Column(Text, nullable=False)  # JSON string for flexible rules
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class PolicyAssignment(Base):
+    __tablename__ = "policy_assignments"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    policy_id = Column(UUID(as_uuid=True), ForeignKey("policies.id"), nullable=False)
+    branch_id = Column(UUID(as_uuid=True), ForeignKey("branches.id"), nullable=True)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
+    assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class RegularizationRequest(Base):
+    __tablename__ = "regularization_requests"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    reason = Column(String, nullable=False)
+    requested_in = Column(DateTime, nullable=True)
+    requested_out = Column(DateTime, nullable=True)
+    status = Column(String, default="pending")  # pending, approved, rejected
+    approver_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

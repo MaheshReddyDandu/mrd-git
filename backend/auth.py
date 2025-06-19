@@ -62,73 +62,42 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
-    """Get current authenticated user"""
+    """Get current authenticated user, tenant-aware"""
     token = credentials.credentials
-    user_id = verify_token(token)
-    
-    user = db.query(User).filter(User.id == user_id).first()
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    user_id: str = payload.get("sub")
+    tenant_id: str = payload.get("tenant_id")
+    if user_id is None or tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = db.query(User).filter(User.id == user_id, User.tenant_id == tenant_id).first()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account disabled",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
     return user
 
 def require_roles(allowed_roles: List[str]):
-    """Decorator factory for role-based access control"""
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Get current user from dependencies
-            current_user = None
-            db = None
-            
-            for key, value in kwargs.items():
-                if isinstance(value, User):
-                    current_user = value
-                elif hasattr(value, 'query'):  # Check if it's a database session
-                    db = value
-            
-            if not current_user or not db:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Authentication setup error"
-                )
-            
-            # Check user roles
-            user_roles = [role.name for role in current_user.roles]
-            
-            if not any(role in user_roles for role in allowed_roles):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"
-                )
-            
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def require_roles(allowed_roles: List[str]):
-    """Role-based access control dependency"""
+    """Role-based access control dependency, tenant-aware"""
     async def role_checker(current_user: User = Depends(get_current_user)):
         user_roles = [role.name for role in current_user.roles]
-        
         if not any(role in user_roles for role in allowed_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"
             )
         return current_user
-    
     return role_checker
 
 def hash_token(token: str) -> str:
