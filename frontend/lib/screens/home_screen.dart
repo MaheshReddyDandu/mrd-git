@@ -4,9 +4,12 @@ import 'attendance_screen.dart';
 import 'policy_screen.dart';
 import 'regularization_screen.dart';
 import 'analytics_screen.dart';
-import 'admin_screen.dart';
 import 'change_password_screen.dart';
 import '../services/api_service.dart';
+import 'organization/organization_screen.dart';
+import 'admin/admin_dashboard_screen.dart';
+import 'policy_management/policy_management_dashboard.dart';
+import 'notifications/notification_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String? _error;
   int _selectedIndex = 0;
+  int _unreadCount = 0;
 
   final List<Widget> _screens = const [
     EmployeeScreen(),
@@ -27,13 +31,13 @@ class _HomeScreenState extends State<HomeScreen> {
     PolicyScreen(),
     RegularizationScreen(),
     AnalyticsScreen(),
-    AdminScreen(),
   ];
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _fetchUnreadNotifications();
   }
 
   Future<void> _loadUserData() async {
@@ -52,6 +56,25 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _fetchUnreadNotifications() async {
+    try {
+      final user = _userData ?? await ApiService.getCurrentUser();
+      final tenantId = user['tenant_id'];
+      final notifs = await ApiService.listNotifications(tenantId, onlyUnread: true);
+      setState(() => _unreadCount = notifs.length);
+    } catch (e) {
+      setState(() => _unreadCount = 0);
+    }
+  }
+
+  void _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationListScreen()),
+    );
+    _fetchUnreadNotifications();
   }
 
   Future<void> _logout() async {
@@ -106,6 +129,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // Navigation items (show/hide based on role)
     final navItems = <NavigationDestination>[];
     final navScreens = <Widget>[];
+    if (isAdmin) {
+      navItems.add(const NavigationDestination(icon: Icon(Icons.business_center), label: 'Organization'));
+      navScreens.add(const OrganizationScreen());
+    }
     if (isAdmin || isManager) {
       navItems.add(const NavigationDestination(icon: Icon(Icons.people), label: 'Employees'));
       navScreens.add(const EmployeeScreen());
@@ -114,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     navScreens.add(const AttendanceScreen());
     if (isAdmin || isManager) {
       navItems.add(const NavigationDestination(icon: Icon(Icons.policy), label: 'Policies'));
-      navScreens.add(const PolicyScreen());
+      navScreens.add(const PolicyManagementDashboard());
     }
     navItems.add(const NavigationDestination(icon: Icon(Icons.edit_note), label: 'Regularization'));
     navScreens.add(const RegularizationScreen());
@@ -122,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
     navScreens.add(const AnalyticsScreen());
     if (isAdmin) {
       navItems.add(const NavigationDestination(icon: Icon(Icons.admin_panel_settings), label: 'Admin'));
-      navScreens.add(const AdminScreen());
+      navScreens.add(const AdminDashboardScreen());
     }
 
     // Responsive: Sidebar for wide screens, bottom nav for mobile
@@ -131,6 +158,32 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: _openNotifications,
+              ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '$_unreadCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'change_password') {

@@ -170,6 +170,104 @@ class ApiService {
     }
   }
 
+  // Branch endpoints
+  static Future<List<dynamic>> listBranches(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/branches'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list branches: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createBranch(String tenantId, Map<String, dynamic> branch) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tenants/$tenantId/branches'),
+      headers: _headers,
+      body: jsonEncode(branch),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create branch: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateBranch(String tenantId, String branchId, Map<String, dynamic> branch) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/tenants/$tenantId/branches/$branchId'),
+      headers: _headers,
+      body: jsonEncode(branch),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update branch: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteBranch(String tenantId, String branchId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/tenants/$tenantId/branches/$branchId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete branch: ${response.body}');
+    }
+  }
+
+  // Department endpoints
+  static Future<List<dynamic>> listDepartments(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/departments'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list departments: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createDepartment(String tenantId, Map<String, dynamic> department) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tenants/$tenantId/departments'),
+      headers: _headers,
+      body: jsonEncode(department),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create department: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateDepartment(String tenantId, String departmentId, Map<String, dynamic> department) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/tenants/$tenantId/departments/$departmentId'),
+      headers: _headers,
+      body: jsonEncode(department),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update department: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteDepartment(String tenantId, String departmentId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/tenants/$tenantId/departments/$departmentId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete department: ${response.body}');
+    }
+  }
+
   // Attendance endpoints
   static Future<List<dynamic>> listAttendance(String tenantId) async {
     final response = await http.get(
@@ -467,6 +565,96 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to fetch roles: ${response.body}');
+    }
+  }
+
+  static Future<void> adminAssignRole(String userId, String roleId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/assign-role'),
+      headers: _headers,
+      body: jsonEncode({'user_id': userId, 'role_id': roleId}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to assign role: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getAuditLogs({int skip = 0, int limit = 100}) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/audit-logs?skip=$skip&limit=$limit'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to fetch audit logs: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getAttendanceReport(String tenantId, {
+    String? startDate,
+    String? endDate,
+    String? departmentId,
+    String? employeeId,
+    String? status,
+  }) async {
+    final params = <String, String>{};
+    if (startDate != null) params['start_date'] = startDate;
+    if (endDate != null) params['end_date'] = endDate;
+    if (departmentId != null) params['department_id'] = departmentId;
+    if (employeeId != null) params['employee_id'] = employeeId;
+    if (status != null) params['status'] = status;
+    final uri = Uri.parse('$baseUrl/tenants/$tenantId/attendance-report').replace(queryParameters: params);
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to fetch attendance report: \\${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> listNotifications(String tenantId, {bool onlyUnread = false}) async {
+    final params = <String, String>{};
+    if (onlyUnread) params['only_unread'] = 'true';
+    final uri = Uri.parse('$baseUrl/tenants/$tenantId/notifications').replace(queryParameters: params);
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to fetch notifications: \\${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> markNotificationRead(String tenantId, String notificationId) async {
+    final uri = Uri.parse('$baseUrl/tenants/$tenantId/notifications/$notificationId/read');
+    final response = await http.post(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to mark notification as read: \\${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminUpdateTenant(String tenantId, Map<String, dynamic> tenantData) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/tenants/$tenantId'),
+      headers: _headers,
+      body: jsonEncode(tenantData),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update tenant: ${response.body}');
+    }
+  }
+
+  static Future<void> adminDeleteTenant(String tenantId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/tenants/$tenantId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete tenant: ${response.body}');
     }
   }
 } 

@@ -1,6 +1,6 @@
 # models.py
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Index, Date
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -173,3 +173,27 @@ class RegularizationRequest(Base):
     approver_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    action = Column(String, nullable=False, index=True) # e.g., "user.login", "employee.create"
+    target_resource = Column(String, nullable=True) # e.g., "employee", "policy"
+    target_id = Column(String, nullable=True)
+    details = Column(JSONB, nullable=True) # To store before/after states
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    type = Column(String, nullable=False)  # e.g., 'info', 'warning', 'action', 'system'
+    message = Column(String, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    user = relationship("User")

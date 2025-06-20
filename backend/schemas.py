@@ -99,36 +99,48 @@ class BranchBase(BaseModel):
 class BranchCreate(BranchBase):
     pass
 
+class BranchUpdate(BranchBase):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    geo_fence: Optional[str] = None
+
 class BranchResponse(BranchBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     class Config:
         from_attributes = True
 
 class DepartmentBase(BaseModel):
-    branch_id: Optional[uuid.UUID] = None
     name: str
+    branch_id: Optional[uuid.UUID] = None
 
 class DepartmentCreate(DepartmentBase):
     pass
 
+class DepartmentUpdate(DepartmentBase):
+    name: Optional[str] = None
+    branch_id: Optional[uuid.UUID] = None
+
 class DepartmentResponse(DepartmentBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     class Config:
         from_attributes = True
 
 class EmployeeBase(BaseModel):
-    department_id: Optional[uuid.UUID] = None
-    role_id: Optional[uuid.UUID] = None
     name: str
     email: str
+    department_id: Optional[uuid.UUID] = None
+    role_id: Optional[uuid.UUID] = None
     phone: Optional[str] = None
     status: Optional[str] = "active"
 
 class EmployeeCreate(EmployeeBase):
-    pass
+    tenant_id: uuid.UUID
 
 class EmployeeResponse(EmployeeBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     class Config:
         from_attributes = True
 
@@ -141,24 +153,26 @@ class AttendanceBase(BaseModel):
     status: Optional[str] = None
 
 class AttendanceCreate(AttendanceBase):
-    pass
+    tenant_id: uuid.UUID
 
 class AttendanceResponse(AttendanceBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     class Config:
         from_attributes = True
 
 class PolicyBase(BaseModel):
     name: str
-    type: str  # attendance, leave, penalty, etc.
-    level: str  # org, branch, department, employee
-    rules: str  # JSON string for flexible rules
+    type: str
+    level: str
+    rules: str
 
 class PolicyCreate(PolicyBase):
-    pass
+    tenant_id: uuid.UUID
 
 class PolicyResponse(PolicyBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime
     class Config:
         from_attributes = True
@@ -170,10 +184,11 @@ class PolicyAssignmentBase(BaseModel):
     employee_id: Optional[uuid.UUID] = None
 
 class PolicyAssignmentCreate(PolicyAssignmentBase):
-    pass
+    tenant_id: uuid.UUID
 
 class PolicyAssignmentResponse(PolicyAssignmentBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     assigned_at: datetime
     class Config:
         from_attributes = True
@@ -186,20 +201,18 @@ class RegularizationRequestBase(BaseModel):
     requested_out: Optional[datetime] = None
 
 class RegularizationRequestCreate(RegularizationRequestBase):
-    pass
+    tenant_id: uuid.UUID
 
 class RegularizationRequestApprove(BaseModel):
     approver_id: uuid.UUID
-    status: str  # approved or rejected
+    status: str
 
 class RegularizationRequestResponse(RegularizationRequestBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     status: str
     approver_id: Optional[uuid.UUID] = None
     approved_at: Optional[datetime] = None
-    created_at: datetime
-    class Config:
-        from_attributes = True
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -223,3 +236,34 @@ class UserAddByAdmin(BaseModel):
     email: EmailStr
     username: str
     role_id: str  # Accept role_id instead of role_name
+
+class AuditLogResponse(BaseModel):
+    id: uuid.UUID
+    tenant_id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
+    action: str
+    target_resource: Optional[str] = None
+    target_id: Optional[str] = None
+    details: Optional[dict] = None
+    timestamp: datetime
+    user: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True
+
+class NotificationBase(BaseModel):
+    type: str
+    message: str
+    user_id: Optional[uuid.UUID] = None
+
+class NotificationCreate(NotificationBase):
+    tenant_id: uuid.UUID
+
+class NotificationResponse(NotificationBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    is_read: bool
+    created_at: datetime
+    user: Optional[UserResponse] = None
+    class Config:
+        from_attributes = True
