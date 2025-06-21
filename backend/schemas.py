@@ -1,7 +1,7 @@
 # schemas.py
 from pydantic import BaseModel, EmailStr, validator
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 import uuid
 
 class UserCreate(BaseModel):
@@ -9,6 +9,14 @@ class UserCreate(BaseModel):
     username: str
     password: str
     tenant_id: uuid.UUID
+    
+    # User profile fields (optional for registration)
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    client_id: Optional[uuid.UUID] = None
+    project_id: Optional[uuid.UUID] = None
+    department_id: Optional[uuid.UUID] = None
+    role_id: Optional[uuid.UUID] = None
     
     @validator('username')
     def username_alphanumeric(cls, v):
@@ -36,6 +44,15 @@ class UserResponse(BaseModel):
     created_at: datetime
     roles: List['RoleResponse'] = []
     
+    # User profile fields
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    client_id: Optional[uuid.UUID] = None
+    project_id: Optional[uuid.UUID] = None
+    department_id: Optional[uuid.UUID] = None
+    role_id: Optional[uuid.UUID] = None
+    
     class Config:
         from_attributes = True
 
@@ -55,9 +72,22 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     is_active: Optional[bool] = None
+    
+    # User profile fields
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[str] = None
+    client_id: Optional[uuid.UUID] = None
+    project_id: Optional[uuid.UUID] = None
+    department_id: Optional[uuid.UUID] = None
+    role_id: Optional[uuid.UUID] = None
 
 class RoleCreate(BaseModel):
     name: str
+    description: Optional[str] = None
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
     description: Optional[str] = None
 
 class PermissionResponse(BaseModel):
@@ -85,9 +115,70 @@ class TenantBase(BaseModel):
 class TenantCreate(TenantBase):
     pass
 
+class TenantUpdate(BaseModel):
+    name: Optional[str] = None
+    contact_email: Optional[str] = None
+    plan: Optional[str] = None
+
 class TenantResponse(TenantBase):
     id: uuid.UUID
     created_at: datetime
+    class Config:
+        from_attributes = True
+
+class ClientBase(BaseModel):
+    name: str
+    contact_email: str
+    contact_phone: Optional[str] = None
+    address: Optional[str] = None
+    industry: Optional[str] = None
+    status: Optional[str] = "active"
+
+class ClientCreate(ClientBase):
+    pass
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    address: Optional[str] = None
+    industry: Optional[str] = None
+    status: Optional[str] = None
+
+class ClientResponse(ClientBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+class ProjectBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: Optional[str] = "active"
+    budget: Optional[str] = None
+
+class ProjectCreate(ProjectBase):
+    client_id: uuid.UUID
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    status: Optional[str] = None
+    budget: Optional[str] = None
+    client_id: Optional[uuid.UUID] = None
+
+class ProjectResponse(ProjectBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    client_id: uuid.UUID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -99,7 +190,7 @@ class BranchBase(BaseModel):
 class BranchCreate(BranchBase):
     pass
 
-class BranchUpdate(BranchBase):
+class BranchUpdate(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
     geo_fence: Optional[str] = None
@@ -107,45 +198,34 @@ class BranchUpdate(BranchBase):
 class BranchResponse(BranchBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
 class DepartmentBase(BaseModel):
     name: str
+    description: Optional[str] = None
     branch_id: Optional[uuid.UUID] = None
 
 class DepartmentCreate(DepartmentBase):
     pass
 
-class DepartmentUpdate(DepartmentBase):
+class DepartmentUpdate(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
     branch_id: Optional[uuid.UUID] = None
 
 class DepartmentResponse(DepartmentBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    class Config:
-        from_attributes = True
-
-class EmployeeBase(BaseModel):
-    name: str
-    email: str
-    department_id: Optional[uuid.UUID] = None
-    role_id: Optional[uuid.UUID] = None
-    phone: Optional[str] = None
-    status: Optional[str] = "active"
-
-class EmployeeCreate(EmployeeBase):
-    tenant_id: uuid.UUID
-
-class EmployeeResponse(EmployeeBase):
-    id: uuid.UUID
-    tenant_id: uuid.UUID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
 class AttendanceBase(BaseModel):
-    employee_id: uuid.UUID
+    user_id: uuid.UUID  # Changed from employee_id
     date: datetime
     clock_in: Optional[datetime] = None
     clock_out: Optional[datetime] = None
@@ -158,6 +238,7 @@ class AttendanceCreate(AttendanceBase):
 class AttendanceResponse(AttendanceBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
+    created_at: datetime
     class Config:
         from_attributes = True
 
@@ -170,6 +251,12 @@ class PolicyBase(BaseModel):
 class PolicyCreate(PolicyBase):
     tenant_id: uuid.UUID
 
+class PolicyUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    level: Optional[str] = None
+    rules: Optional[str] = None
+
 class PolicyResponse(PolicyBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
@@ -181,7 +268,7 @@ class PolicyAssignmentBase(BaseModel):
     policy_id: uuid.UUID
     branch_id: Optional[uuid.UUID] = None
     department_id: Optional[uuid.UUID] = None
-    employee_id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
 
 class PolicyAssignmentCreate(PolicyAssignmentBase):
     tenant_id: uuid.UUID
@@ -194,7 +281,7 @@ class PolicyAssignmentResponse(PolicyAssignmentBase):
         from_attributes = True
 
 class RegularizationRequestBase(BaseModel):
-    employee_id: uuid.UUID
+    user_id: uuid.UUID
     date: datetime
     reason: str
     requested_in: Optional[datetime] = None

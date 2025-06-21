@@ -79,7 +79,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: levelController,
-                        decoration: const InputDecoration(labelText: 'Level (org, branch, department, employee)'),
+                        decoration: const InputDecoration(labelText: 'Level (org, branch, department, user)'),
                         validator: (v) => v == null || v.isEmpty ? 'Enter level' : null,
                       ),
                       const SizedBox(height: 8),
@@ -152,7 +152,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
     final formKey = GlobalKey<FormState>();
     final branchIdController = TextEditingController();
     final departmentIdController = TextEditingController();
-    final employeeIdController = TextEditingController();
+    final userIdController = TextEditingController();
     bool isSubmitting = false;
     showDialog(
       context: context,
@@ -178,8 +178,8 @@ class _PolicyScreenState extends State<PolicyScreen> {
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
-                        controller: employeeIdController,
-                        decoration: const InputDecoration(labelText: 'Employee ID (optional)'),
+                        controller: userIdController,
+                        decoration: const InputDecoration(labelText: 'User ID (optional)'),
                       ),
                     ],
                   ),
@@ -202,7 +202,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                               'policy_id': policy['id'],
                               'branch_id': branchIdController.text.isEmpty ? null : branchIdController.text,
                               'department_id': departmentIdController.text.isEmpty ? null : departmentIdController.text,
-                              'employee_id': employeeIdController.text.isEmpty ? null : employeeIdController.text,
+                              'user_id': userIdController.text.isEmpty ? null : userIdController.text,
                             });
                             if (mounted) {
                               Navigator.pop(context);

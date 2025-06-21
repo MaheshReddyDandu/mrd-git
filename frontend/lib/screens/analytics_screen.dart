@@ -64,7 +64,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 spacing: 16,
                 runSpacing: 16,
                 children: [
-                  _buildStatCard('Employees', _stats!['total_employees']?.toString() ?? '0', Icons.people),
+                  _buildStatCard('Users', _stats!['total_users']?.toString() ?? '0', Icons.people),
                   _buildStatCard('Departments', _stats!['total_departments']?.toString() ?? '0', Icons.apartment),
                   _buildStatCard('Branches', _stats!['total_branches']?.toString() ?? '0', Icons.location_city),
                   _buildStatCard('Attendance Records', _stats!['total_attendance_records']?.toString() ?? '0', Icons.access_time),

@@ -50,12 +50,12 @@ INSERT INTO departments (id, tenant_id, branch_id, name) VALUES
   ('50000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', 'Sales');
 
 -- Employees
-INSERT INTO employees (id, tenant_id, department_id, role_id, name, email, phone, status) VALUES
+INSERT INTO users (id, tenant_id, department_id, role_id, name, email, phone, status) VALUES
   ('60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'Alice', 'alice@acme.com', '1234567890', 'active'),
   ('60000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000008', 'Bob', 'bob@beta.com', '0987654321', 'active');
 
 -- Attendance
-INSERT INTO attendance (id, tenant_id, employee_id, date, clock_in, clock_out, location, status) VALUES
+INSERT INTO attendance (id, tenant_id, user_id, date, clock_in, clock_out, location, status) VALUES
   ('70000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', CURRENT_DATE, NOW(), NOW(), 'Office', 'Present'),
   ('70000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000002', CURRENT_DATE, NOW(), NOW(), 'Remote', 'Present');
 
@@ -65,12 +65,12 @@ INSERT INTO policies (id, tenant_id, name, type, level, rules, created_at) VALUE
   ('80000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', 'Leave Policy', 'leave', 'org', '{"max_leaves":12}', NOW());
 
 -- Policy Assignments
-INSERT INTO policy_assignments (id, tenant_id, policy_id, branch_id, department_id, employee_id, assigned_at) VALUES
+INSERT INTO policy_assignments (id, tenant_id, policy_id, branch_id, department_id, user_id, assigned_at) VALUES
   ('90000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001', NULL, NULL, NULL, NOW()),
   ('90000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', '80000000-0000-0000-0000-000000000002', NULL, NULL, NULL, NOW());
 
 -- Regularization Requests
-INSERT INTO regularization_requests (id, tenant_id, employee_id, date, reason, requested_in, requested_out, status, approver_id, approved_at, created_at) VALUES
+INSERT INTO regularization_requests (id, tenant_id, user_id, date, reason, requested_in, requested_out, status, approver_id, approved_at, created_at) VALUES
   ('a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', CURRENT_DATE, 'Missed clock-in', NOW(), NOW(), 'pending', NULL, NULL, NOW()),
   ('a0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000002', CURRENT_DATE, 'Forgot to clock out', NOW(), NOW(), 'pending', NULL, NULL, NOW());
 

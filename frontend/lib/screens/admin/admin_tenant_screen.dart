@@ -146,7 +146,7 @@ class _AdminTenantScreenState extends State<AdminTenantScreen> {
         builder: (context) {
           return AlertDialog(
             title: const Text('Tenant Usage'),
-            content: Text('Employees: ${usage['total_employees'] ?? '-'}\nAttendance Records: ${usage['total_attendance_records'] ?? '-'}'),
+            content: Text('Users: ${usage['total_users'] ?? '-'}\nAttendance Records: ${usage['total_attendance_records'] ?? '-'}'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),

@@ -13,19 +13,21 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from database import get_db, engine, Base
-from models import User, Role, UserRole, Tenant, Branch, Department, Employee, Attendance, Policy, PolicyAssignment, RegularizationRequest
+from models import User, Role, UserRole, Tenant, Branch, Department, Attendance, Policy, PolicyAssignment, RegularizationRequest, Client, Project
 from schemas import (
     UserCreate, UserResponse, UserLogin, TokenResponse, RoleResponse,
     TenantCreate, TenantResponse,
     BranchCreate, BranchResponse,
     DepartmentCreate, DepartmentResponse,
-    EmployeeCreate, EmployeeResponse,
     AttendanceCreate, AttendanceResponse,
     PolicyCreate, PolicyResponse,
     PolicyAssignmentCreate, PolicyAssignmentResponse,
     RegularizationRequestCreate, RegularizationRequestApprove, RegularizationRequestResponse,
     ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest,
-    UserSignupClient, UserAddByAdmin
+    UserSignupClient, UserAddByAdmin,
+    ClientCreate, ClientUpdate, ClientResponse,
+    ProjectCreate, ProjectUpdate, ProjectResponse,
+    RoleCreate, RoleUpdate, DepartmentUpdate, BranchUpdate, UserUpdate
 )
 from auth import create_access_token, verify_token, get_current_user, require_roles
 
@@ -214,12 +216,36 @@ async def assign_role(
     return {"message": f"Role {role.name} assigned to user {user.username}"}
 
 @app.get("/roles", response_model=List[RoleResponse])
-async def get_roles(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(["admin", "manager"]))
-):
-    roles = db.query(Role).filter(Role.tenant_id == current_user.tenant_id).all()
-    return roles
+def list_roles(db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    return db.query(Role).filter(Role.tenant_id == current_user.tenant_id).all()
+
+@app.post("/roles", response_model=RoleResponse)
+def create_role(role: RoleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_role = Role(**role.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_role)
+    db.commit()
+    db.refresh(db_role)
+    return db_role
+
+@app.put("/roles/{role_id}", response_model=RoleResponse)
+def update_role(role_id: uuid.UUID, role: RoleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_role = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_user.tenant_id).first()
+    if not db_role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    for key, value in role.dict(exclude_unset=True).items():
+        setattr(db_role, key, value)
+    db.commit()
+    db.refresh(db_role)
+    return db_role
+
+@app.delete("/roles/{role_id}")
+def delete_role(role_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_role = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_user.tenant_id).first()
+    if not db_role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    db.delete(db_role)
+    db.commit()
+    return {"detail": "Role deleted"}
 
 @app.post("/tenants", response_model=TenantResponse)
 def create_tenant(tenant: TenantCreate, db: Session = Depends(get_db)):
@@ -254,16 +280,6 @@ def create_department(tenant_id: uuid.UUID, department: DepartmentCreate, db: Se
     db.refresh(db_department)
     return db_department
 
-@app.post("/tenants/{tenant_id}/employees", response_model=EmployeeResponse)
-def create_employee(tenant_id: uuid.UUID, employee: EmployeeCreate, db: Session = Depends(get_db)):
-    if employee.tenant_id != tenant_id:
-        raise HTTPException(status_code=400, detail="Tenant ID mismatch")
-    db_employee = Employee(**employee.dict())
-    db.add(db_employee)
-    db.commit()
-    db.refresh(db_employee)
-    return db_employee
-
 @app.post("/tenants/{tenant_id}/attendance", response_model=AttendanceResponse)
 def create_attendance(tenant_id: uuid.UUID, attendance: AttendanceCreate, db: Session = Depends(get_db)):
     if attendance.tenant_id != tenant_id:
@@ -274,10 +290,10 @@ def create_attendance(tenant_id: uuid.UUID, attendance: AttendanceCreate, db: Se
     db.refresh(db_attendance)
     return db_attendance
 
-@app.get("/tenants/{tenant_id}/employees", response_model=list[EmployeeResponse])
-def list_employees(tenant_id: uuid.UUID, db: Session = Depends(get_db)):
-    employees = db.query(Employee).filter(Employee.tenant_id == tenant_id).all()
-    return employees
+@app.get("/tenants/{tenant_id}/users", response_model=list[UserResponse])
+def list_users(tenant_id: uuid.UUID, db: Session = Depends(get_db)):
+    users = db.query(User).filter(User.tenant_id == tenant_id).all()
+    return users
 
 @app.post("/tenants/{tenant_id}/policies", response_model=PolicyResponse)
 def create_policy(tenant_id: uuid.UUID, policy: PolicyCreate, db: Session = Depends(get_db)):
@@ -304,15 +320,15 @@ def assign_policy(tenant_id: uuid.UUID, assignment: PolicyAssignmentCreate, db: 
     db.refresh(db_assignment)
     return db_assignment
 
-@app.get("/tenants/{tenant_id}/employees/{employee_id}/effective-policy", response_model=List[PolicyResponse])
-def get_effective_policy(tenant_id: uuid.UUID, employee_id: uuid.UUID, db: Session = Depends(get_db)):
-    # Get all policies assigned to this employee, department, branch, or org (tenant)
+@app.get("/tenants/{tenant_id}/users/{user_id}/effective-policy", response_model=List[PolicyResponse])
+def get_effective_policy(tenant_id: uuid.UUID, user_id: uuid.UUID, db: Session = Depends(get_db)):
+    # Get all policies assigned to this user, department, branch, or org (tenant)
     assignments = db.query(PolicyAssignment).filter(
         PolicyAssignment.tenant_id == tenant_id,
-        ((PolicyAssignment.employee_id == employee_id) |
-         (PolicyAssignment.department_id == db.query(Employee.department_id).filter(Employee.id == employee_id).scalar()) |
-         (PolicyAssignment.branch_id == db.query(Department.branch_id).filter(Department.id == db.query(Employee.department_id).filter(Employee.id == employee_id).scalar()).scalar()) |
-         (PolicyAssignment.branch_id == None and PolicyAssignment.department_id == None and PolicyAssignment.employee_id == None))
+        ((PolicyAssignment.user_id == user_id) |
+         (PolicyAssignment.department_id == db.query(User.department_id).filter(User.id == user_id).scalar()) |
+         (PolicyAssignment.branch_id == db.query(Department.branch_id).filter(Department.id == db.query(User.department_id).filter(User.id == user_id).scalar()).scalar()) |
+         (PolicyAssignment.branch_id == None and PolicyAssignment.department_id == None and PolicyAssignment.user_id == None))
     ).all()
     policy_ids = [a.policy_id for a in assignments]
     policies = db.query(Policy).filter(Policy.id.in_(policy_ids)).all()
@@ -372,19 +388,19 @@ def department_attendance_summary(tenant_id: uuid.UUID, department_id: uuid.UUID
         func.count(func.nullif(Attendance.status != "Present", True)).label("present"),
         func.count(func.nullif(Attendance.status == "Late", False)).label("late"),
         func.count(func.nullif(Attendance.status == "Absent", False)).label("absent")
-    ).join(Employee, Attendance.employee_id == Employee.id)
-    query = query.filter(Attendance.tenant_id == tenant_id, Employee.department_id == department_id)
+    ).join(User, Attendance.user_id == User.id)
+    query = query.filter(Attendance.tenant_id == tenant_id, User.department_id == department_id)
     query = query.group_by(Attendance.date)
     return [dict(row) for row in query.all()]
 
 @app.get("/tenants/{tenant_id}/dashboard-stats")
 def dashboard_stats(tenant_id: uuid.UUID, db: Session = Depends(get_db)):
-    total_employees = db.query(Employee).filter(Employee.tenant_id == tenant_id).count()
+    total_users = db.query(User).filter(User.tenant_id == tenant_id).count()
     total_departments = db.query(Department).filter(Department.tenant_id == tenant_id).count()
     total_branches = db.query(Branch).filter(Branch.tenant_id == tenant_id).count()
     total_attendance = db.query(Attendance).filter(Attendance.tenant_id == tenant_id).count()
     return {
-        "total_employees": total_employees,
+        "total_users": total_users,
         "total_departments": total_departments,
         "total_branches": total_branches,
         "total_attendance_records": total_attendance
@@ -433,10 +449,10 @@ def admin_assign_plan(tenant_id: uuid.UUID, plan: str, db: Session = Depends(get
 
 @app.get("/admin/tenants/{tenant_id}/usage")
 def admin_tenant_usage(tenant_id: uuid.UUID, db: Session = Depends(get_db)):
-    total_employees = db.query(Employee).filter(Employee.tenant_id == tenant_id).count()
+    total_users = db.query(User).filter(User.tenant_id == tenant_id).count()
     total_attendance = db.query(Attendance).filter(Attendance.tenant_id == tenant_id).count()
     return {
-        "total_employees": total_employees,
+        "total_users": total_users,
         "total_attendance_records": total_attendance
     }
 
@@ -564,6 +580,194 @@ def change_password(req: ChangePasswordRequest, current_user: User = Depends(get
     current_user.hashed_password = hashed_password.decode('utf-8')
     db.commit()
     return {"message": "Password changed successfully"}
+
+# --- Client CRUD Endpoints ---
+@app.get("/clients", response_model=List[ClientResponse])
+def list_clients(db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    return db.query(Client).filter(Client.tenant_id == current_user.tenant_id).all()
+
+@app.post("/clients", response_model=ClientResponse)
+def create_client(client: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_client = Client(**client.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_client)
+    db.commit()
+    db.refresh(db_client)
+    return db_client
+
+@app.put("/clients/{client_id}", response_model=ClientResponse)
+def update_client(client_id: uuid.UUID, client: ClientUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_user.tenant_id).first()
+    if not db_client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    for key, value in client.dict(exclude_unset=True).items():
+        setattr(db_client, key, value)
+    db.commit()
+    db.refresh(db_client)
+    return db_client
+
+@app.delete("/clients/{client_id}")
+def delete_client(client_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_user.tenant_id).first()
+    if not db_client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    db.delete(db_client)
+    db.commit()
+    return {"detail": "Client deleted"}
+
+# --- Project CRUD Endpoints ---
+@app.get("/projects", response_model=List[ProjectResponse])
+def list_projects(db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    return db.query(Project).filter(Project.tenant_id == current_user.tenant_id).all()
+
+@app.post("/projects", response_model=ProjectResponse)
+def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_project = Project(**project.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+@app.put("/projects/{project_id}", response_model=ProjectResponse)
+def update_project(project_id: uuid.UUID, project: ProjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_user.tenant_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    for key, value in project.dict(exclude_unset=True).items():
+        setattr(db_project, key, value)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+@app.delete("/projects/{project_id}")
+def delete_project(project_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_user.tenant_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db.delete(db_project)
+    db.commit()
+    return {"detail": "Project deleted"}
+
+# --- Department CRUD Endpoints ---
+@app.get("/departments", response_model=List[DepartmentResponse])
+def list_departments(db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    return db.query(Department).filter(Department.tenant_id == current_user.tenant_id).all()
+
+@app.post("/departments", response_model=DepartmentResponse)
+def create_department(department: DepartmentCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_department = Department(**department.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_department)
+    db.commit()
+    db.refresh(db_department)
+    return db_department
+
+@app.put("/departments/{department_id}", response_model=DepartmentResponse)
+def update_department(department_id: uuid.UUID, department: DepartmentUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_department = db.query(Department).filter(Department.id == department_id, Department.tenant_id == current_user.tenant_id).first()
+    if not db_department:
+        raise HTTPException(status_code=404, detail="Department not found")
+    for key, value in department.dict(exclude_unset=True).items():
+        setattr(db_department, key, value)
+    db.commit()
+    db.refresh(db_department)
+    return db_department
+
+@app.delete("/departments/{department_id}")
+def delete_department(department_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_department = db.query(Department).filter(Department.id == department_id, Department.tenant_id == current_user.tenant_id).first()
+    if not db_department:
+        raise HTTPException(status_code=404, detail="Department not found")
+    db.delete(db_department)
+    db.commit()
+    return {"detail": "Department deleted"}
+
+# --- Branch CRUD Endpoints ---
+@app.get("/branches", response_model=List[BranchResponse])
+def list_branches(db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    return db.query(Branch).filter(Branch.tenant_id == current_user.tenant_id).all()
+
+@app.post("/branches", response_model=BranchResponse)
+def create_branch(branch: BranchCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_branch = Branch(**branch.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_branch)
+    db.commit()
+    db.refresh(db_branch)
+    return db_branch
+
+@app.put("/branches/{branch_id}", response_model=BranchResponse)
+def update_branch(branch_id: uuid.UUID, branch: BranchUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_branch = db.query(Branch).filter(Branch.id == branch_id, Branch.tenant_id == current_user.tenant_id).first()
+    if not db_branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    for key, value in branch.dict(exclude_unset=True).items():
+        setattr(db_branch, key, value)
+    db.commit()
+    db.refresh(db_branch)
+    return db_branch
+
+@app.delete("/branches/{branch_id}")
+def delete_branch(branch_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_branch = db.query(Branch).filter(Branch.id == branch_id, Branch.tenant_id == current_user.tenant_id).first()
+    if not db_branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    db.delete(db_branch)
+    db.commit()
+    return {"detail": "Branch deleted"}
+
+# --- User CRUD Endpoints ---
+@app.get("/users", response_model=List[UserResponse])
+def list_users(db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    return db.query(User).filter(User.tenant_id == current_user.tenant_id).all()
+
+@app.post("/tenants/{tenant_id}/users", response_model=UserResponse)
+def create_user(tenant_id: uuid.UUID, user: UserCreate, db: Session = Depends(get_db)):
+    if user.tenant_id != tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant ID mismatch")
+    # Hash password
+    hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
+    # Create user with user profile fields
+    db_user = User(
+        email=user.email,
+        username=user.username,
+        hashed_password=hashed_password.decode('utf-8'),
+        is_active=True,
+        tenant_id=user.tenant_id,
+        name=user.name,
+        phone=user.phone,
+        client_id=user.client_id,
+        project_id=user.project_id,
+        department_id=user.department_id,
+        role_id=user.role_id
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    # Assign default user role for this tenant
+    user_role = db.query(Role).filter(Role.name == "user", Role.tenant_id == user.tenant_id).first()
+    if user_role:
+        user_role_assignment = UserRole(user_id=db_user.id, role_id=user_role.id)
+        db.add(user_role_assignment)
+        db.commit()
+    return db_user
+
+@app.put("/users/{user_id}", response_model=UserResponse)
+def update_user(user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_user = db.query(User).filter(User.id == user_id, User.tenant_id == current_user.tenant_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    for key, value in user.dict(exclude_unset=True).items():
+        setattr(db_user, key, value)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(require_roles(["admin", "owner"]))):
+    db_user = db.query(User).filter(User.id == user_id, User.tenant_id == current_user.tenant_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(db_user)
+    db.commit()
+    return {"detail": "User deleted"}
 
 if __name__ == "__main__":
     print("[SERVER] Starting FastAPI server on http://0.0.0.0:8000 ...")

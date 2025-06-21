@@ -31,7 +31,7 @@ class PolicyManagementDashboard extends StatelessWidget {
             context,
             icon: Icons.assignment_add,
             title: 'Assign Policies',
-            subtitle: 'Assign policies to employees, departments, or branches',
+            subtitle: 'Assign policies to users, departments, or branches',
             onTap: () {
               Navigator.push(
                 context,
@@ -43,7 +43,7 @@ class PolicyManagementDashboard extends StatelessWidget {
             context,
             icon: Icons.shield_outlined,
             title: 'Effective Policy Viewer',
-            subtitle: 'See which policies apply to a specific employee',
+            subtitle: 'See which policies apply to a specific user',
             onTap: () {
               Navigator.push(
                 context,

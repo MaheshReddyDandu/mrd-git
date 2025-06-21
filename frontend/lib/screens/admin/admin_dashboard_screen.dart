@@ -3,6 +3,8 @@ import 'admin_tenant_screen.dart';
 import 'user_management_screen.dart';
 import 'audit_log_screen.dart';
 import 'reports_screen.dart';
+import 'client_management_screen.dart';
+import 'project_management_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -37,6 +39,30 @@ class AdminDashboardScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const UserManagementScreen()),
+              );
+            },
+          ),
+          _buildDashboardCard(
+            context,
+            icon: Icons.business,
+            title: 'Client Management',
+            subtitle: 'Manage client companies and their details',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ClientManagementScreen()),
+              );
+            },
+          ),
+          _buildDashboardCard(
+            context,
+            icon: Icons.work,
+            title: 'Project Management',
+            subtitle: 'Manage projects and their assignments',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProjectManagementScreen()),
               );
             },
           ),

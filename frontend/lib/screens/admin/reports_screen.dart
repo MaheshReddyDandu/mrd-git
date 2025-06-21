@@ -17,10 +17,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   String? _selectedDepartmentId;
-  String? _selectedEmployeeId;
+  String? _selectedUserId;
   String? _selectedStatus;
   List<dynamic> _departments = [];
-  List<dynamic> _employees = [];
+  List<dynamic> _users = [];
   List<dynamic> _results = [];
   bool _isLoading = false;
   Map<String, dynamic>? _userData;
@@ -34,11 +34,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _loadInitialData() async {
     final userData = await ApiService.getCurrentUser();
     final departments = await ApiService.listDepartments(userData['tenant_id']);
-    final employees = await ApiService.listEmployees(userData['tenant_id']);
+    final users = await ApiService.listUsers(userData['tenant_id']);
     setState(() {
       _userData = userData;
       _departments = departments;
-      _employees = employees;
+      _users = users;
     });
   }
 
@@ -50,7 +50,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         startDate: _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : null,
         endDate: _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null,
         departmentId: _selectedDepartmentId,
-        employeeId: _selectedEmployeeId,
+        employeeId: _selectedUserId,
         status: _selectedStatus,
       );
       setState(() => _results = results);
@@ -66,7 +66,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (_startDate != null) params['start_date'] = DateFormat('yyyy-MM-dd').format(_startDate!);
     if (_endDate != null) params['end_date'] = DateFormat('yyyy-MM-dd').format(_endDate!);
     if (_selectedDepartmentId != null) params['department_id'] = _selectedDepartmentId!;
-    if (_selectedEmployeeId != null) params['employee_id'] = _selectedEmployeeId!;
+    if (_selectedUserId != null) params['employee_id'] = _selectedUserId!;
     if (_selectedStatus != null) params['status'] = _selectedStatus!;
     final uri = Uri.parse('${ApiService.baseUrl}/tenants/${_userData!['tenant_id']}/attendance-report').replace(queryParameters: params);
     if (kIsWeb) {
@@ -129,15 +129,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
               decoration: const InputDecoration(labelText: 'Department'),
             ),
             DropdownButtonFormField<String>(
-              value: _selectedEmployeeId,
-              items: _employees.map<DropdownMenuItem<String>>((emp) {
+              value: _selectedUserId,
+              items: _users.map<DropdownMenuItem<String>>((user) {
                 return DropdownMenuItem<String>(
-                  value: emp['id'],
-                  child: Text(emp['name']),
+                  value: user['id'],
+                  child: Text(user['name']),
                 );
               }).toList(),
-              onChanged: (value) => setState(() => _selectedEmployeeId = value),
-              decoration: const InputDecoration(labelText: 'Employee'),
+              onChanged: (value) => setState(() => _selectedUserId = value),
+              decoration: const InputDecoration(labelText: 'User'),
             ),
             DropdownButtonFormField<String>(
               value: _selectedStatus,

@@ -19,8 +19,21 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True)
     
+    # User profile fields (merged from Employee model)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True)
+    name = Column(String, nullable=True)  # Full name for user profile context
+    phone = Column(String, nullable=True)
+    status = Column(String, default="active")  # active, inactive, suspended
+    
     # Relationships
     roles = relationship("Role", secondary="user_roles", back_populates="users")
+    client = relationship("Client", foreign_keys=[client_id])
+    project = relationship("Project", foreign_keys=[project_id])
+    department = relationship("Department", foreign_keys=[department_id])
+    work_role = relationship("Role", foreign_keys=[role_id])
     
     # Indexes for performance
     __table_args__ = (
@@ -103,6 +116,33 @@ class Tenant(Base):
     plan = Column(String, default="basic")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class Client(Base):
+    __tablename__ = "clients"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String, nullable=False)
+    contact_email = Column(String, nullable=False)
+    contact_phone = Column(String)
+    address = Column(Text)
+    industry = Column(String)
+    status = Column(String, default="active")  # active, inactive, suspended
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class Project(Base):
+    __tablename__ = "projects"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    start_date = Column(Date)
+    end_date = Column(Date)
+    status = Column(String, default="active")  # active, completed, on-hold, cancelled
+    budget = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
 class Branch(Base):
     __tablename__ = "branches"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -110,6 +150,8 @@ class Branch(Base):
     name = Column(String, nullable=False)
     address = Column(String)
     geo_fence = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class Department(Base):
     __tablename__ = "departments"
@@ -117,28 +159,21 @@ class Department(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     branch_id = Column(UUID(as_uuid=True), ForeignKey("branches.id"))
     name = Column(String, nullable=False)
-
-class Employee(Base):
-    __tablename__ = "employees"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"))
-    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"))
-    name = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    phone = Column(String)
-    status = Column(String, default="active")
+    description = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class Attendance(Base):
     __tablename__ = "attendance"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Changed from employee_id
     date = Column(Date, nullable=False)
     clock_in = Column(DateTime)
     clock_out = Column(DateTime)
     location = Column(String)
     status = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Policy(Base):
     __tablename__ = "policies"
@@ -146,7 +181,7 @@ class Policy(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)  # attendance, leave, penalty, etc.
-    level = Column(String, nullable=False)  # org, branch, department, employee
+    level = Column(String, nullable=False)  # org, branch, department, user
     rules = Column(Text, nullable=False)  # JSON string for flexible rules
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -157,20 +192,20 @@ class PolicyAssignment(Base):
     policy_id = Column(UUID(as_uuid=True), ForeignKey("policies.id"), nullable=False)
     branch_id = Column(UUID(as_uuid=True), ForeignKey("branches.id"), nullable=True)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
-    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Changed from employee_id
     assigned_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class RegularizationRequest(Base):
     __tablename__ = "regularization_requests"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Changed from employee_id
     date = Column(Date, nullable=False)
     reason = Column(String, nullable=False)
     requested_in = Column(DateTime, nullable=True)
     requested_out = Column(DateTime, nullable=True)
     status = Column(String, default="pending")  # pending, approved, rejected
-    approver_id = Column(UUID(as_uuid=True), ForeignKey("employees.id"), nullable=True)
+    approver_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Changed from employee_id
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -179,8 +214,8 @@ class AuditLog(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=True, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
-    action = Column(String, nullable=False, index=True) # e.g., "user.login", "employee.create"
-    target_resource = Column(String, nullable=True) # e.g., "employee", "policy"
+    action = Column(String, nullable=False, index=True) # e.g., "user.login", "user.create"
+    target_resource = Column(String, nullable=True) # e.g., "user", "policy"
     target_id = Column(String, nullable=True)
     details = Column(JSONB, nullable=True) # To store before/after states
     timestamp = Column(DateTime(timezone=True), server_default=func.now())

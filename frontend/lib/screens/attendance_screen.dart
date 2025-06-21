@@ -52,11 +52,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       final user = _userData ?? await ApiService.getCurrentUser();
       final tenantId = user['tenant_id'];
-      final employeeId = user['id'];
+      final userId = user['id'];
       final now = DateTime.now();
       final attendance = {
         'tenant_id': tenantId,
-        'employee_id': employeeId,
+        'user_id': userId,
         'date': now.toIso8601String(),
         'status': type == 'in' ? 'Present' : 'Present',
         'clock_in': type == 'in' ? now.toIso8601String() : null,
@@ -87,7 +87,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (_error != null) {
       return Center(child: Text('Error: $_error'));
     }
-    final isEmployee = (_userData?['roles'] as List?)?.any((r) => r['name'] == 'user') ?? false;
+    final isUser = (_userData?['roles'] as List?)?.any((r) => r['name'] == 'user') ?? false;
     return Scaffold(
       appBar: AppBar(title: const Text('Attendance')),
       body: Padding(
@@ -101,7 +101,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   subtitle: Text('Present: ${_summary?['present'] ?? 0}, Late: ${_summary?['late'] ?? 0}, Absent: ${_summary?['absent'] ?? 0}'),
                 ),
               ),
-            if (isEmployee)
+            if (isUser)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [

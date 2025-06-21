@@ -12,8 +12,9 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
   late Future<List<dynamic>> _policiesFuture;
   late Future<List<dynamic>> _branchesFuture;
   late Future<List<dynamic>> _departmentsFuture;
-  late Future<List<dynamic>> _employeesFuture;
+  late Future<List<dynamic>> _usersFuture;
   Map<String, dynamic>? _userData;
+  String? _selectedUserId;
 
   @override
   void initState() {
@@ -29,7 +30,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
         _policiesFuture = ApiService.listPolicies(userData['tenant_id']);
         _branchesFuture = ApiService.listBranches(userData['tenant_id']);
         _departmentsFuture = ApiService.listDepartments(userData['tenant_id']);
-        _employeesFuture = ApiService.listEmployees(userData['tenant_id']);
+        _usersFuture = ApiService.listUsers(userData['tenant_id']);
       });
     } catch (e) {
       // handle error
@@ -84,7 +85,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
   Future<void> _showAssignmentDialog(Map<String, dynamic> policy) async {
     String? _selectedBranchId;
     String? _selectedDepartmentId;
-    String? _selectedEmployeeId;
+    String? _selectedUserId;
     final _formKey = GlobalKey<FormState>();
 
     await showDialog(
@@ -96,7 +97,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
             future: Future.wait([
               _branchesFuture,
               _departmentsFuture,
-              _employeesFuture,
+              _usersFuture,
             ]),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
@@ -104,7 +105,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
               }
               final branches = snapshot.data![0];
               final departments = snapshot.data![1];
-              final employees = snapshot.data![2];
+              final users = snapshot.data![2];
               return Form(
                 key: _formKey,
                 child: Column(
@@ -143,20 +144,19 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
                       decoration: const InputDecoration(labelText: 'Department'),
                     ),
                     DropdownButtonFormField<String>(
-                      value: _selectedEmployeeId,
-                      items: [const DropdownMenuItem(value: '', child: Text('None'))] +
-                          employees.map<DropdownMenuItem<String>>((emp) {
+                      value: _selectedUserId,
+                      items: users.map<DropdownMenuItem<String>>((user) {
                         return DropdownMenuItem<String>(
-                          value: emp['id'],
-                          child: Text(emp['name']),
+                          value: user['id'],
+                          child: Text(user['name']),
                         );
                       }).toList(),
                       onChanged: (value) {
                         setState(() {
-                          _selectedEmployeeId = value;
+                          _selectedUserId = value;
                         });
                       },
-                      decoration: const InputDecoration(labelText: 'Employee'),
+                      decoration: const InputDecoration(labelText: 'User'),
                     ),
                   ],
                 ),
@@ -176,7 +176,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
                     'tenant_id': _userData!['tenant_id'],
                     'branch_id': _selectedBranchId,
                     'department_id': _selectedDepartmentId,
-                    'employee_id': _selectedEmployeeId,
+                    'user_id': _selectedUserId,
                   };
                   try {
                     await ApiService.assignPolicy(_userData!['tenant_id'], assignment);

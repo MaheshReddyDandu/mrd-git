@@ -9,9 +9,9 @@ class EffectivePolicyViewerScreen extends StatefulWidget {
 }
 
 class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScreen> {
-  late Future<List<dynamic>> _employeesFuture;
+  late Future<List<dynamic>> _usersFuture;
   Map<String, dynamic>? _userData;
-  String? _selectedEmployeeId;
+  String? _selectedUserId;
   List<dynamic>? _effectivePolicies;
   bool _isLoadingPolicies = false;
 
@@ -26,7 +26,7 @@ class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScree
       final userData = await ApiService.getCurrentUser();
       setState(() {
         _userData = userData;
-        _employeesFuture = ApiService.listEmployees(userData['tenant_id']);
+        _usersFuture = ApiService.listUsers(userData['tenant_id']);
       });
     } catch (e) {
       if (mounted) {
@@ -38,7 +38,7 @@ class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScree
   }
 
   Future<void> _fetchEffectivePolicies() async {
-    if (_selectedEmployeeId == null || _userData == null) {
+    if (_selectedUserId == null || _userData == null) {
       return;
     }
     setState(() {
@@ -48,7 +48,7 @@ class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScree
     try {
       final policies = await ApiService.getEffectivePolicy(
         _userData!['tenant_id'],
-        _selectedEmployeeId!,
+        _selectedUserId!,
       );
       setState(() {
         _effectivePolicies = policies;
@@ -78,34 +78,34 @@ class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScree
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FutureBuilder<List<dynamic>>(
-              future: _employeesFuture,
+              future: _usersFuture,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return const Text('Could not load employees.');
+                  return const Text('Could not load users.');
                 }
-                final employees = snapshot.data!;
+                final users = snapshot.data!;
                 return DropdownButtonFormField<String>(
-                  value: _selectedEmployeeId,
-                  items: employees.map<DropdownMenuItem<String>>((emp) {
+                  value: _selectedUserId,
+                  items: users.map<DropdownMenuItem<String>>((user) {
                     return DropdownMenuItem<String>(
-                      value: emp['id'],
-                      child: Text(emp['name']),
+                      value: user['id'],
+                      child: Text(user['name']),
                     );
                   }).toList(),
                   onChanged: (value) {
                     setState(() {
-                      _selectedEmployeeId = value;
-                      _effectivePolicies = null; // Clear old policies
+                      _selectedUserId = value;
+                      _effectivePolicies = null;
                     });
                     if (value != null) {
                       _fetchEffectivePolicies();
                     }
                   },
                   decoration: const InputDecoration(
-                    labelText: 'Select Employee',
+                    labelText: 'Select User',
                     border: OutlineInputBorder(),
                   ),
                 );
@@ -128,10 +128,10 @@ class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScree
       return const Center(child: CircularProgressIndicator());
     }
     if (_effectivePolicies == null) {
-      return const Center(child: Text('Select an employee to see their effective policies.'));
+      return const Center(child: Text('Select a user to see their effective policies.'));
     }
     if (_effectivePolicies!.isEmpty) {
-      return const Center(child: Text('No effective policies found for this employee.'));
+      return const Center(child: Text('No effective policies found for this user.'));
     }
     final policies = _effectivePolicies!;
     return ListView.builder(

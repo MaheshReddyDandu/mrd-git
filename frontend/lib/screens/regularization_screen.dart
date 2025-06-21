@@ -111,10 +111,10 @@ class _RegularizationScreenState extends State<RegularizationScreen> {
                             try {
                               final user = _userData ?? await ApiService.getCurrentUser();
                               final tenantId = user['tenant_id'];
-                              final employeeId = user['id'];
+                              final userId = user['id'];
                               await ApiService.submitRegularizationRequest(tenantId, {
                                 'tenant_id': tenantId,
-                                'employee_id': employeeId,
+                                'user_id': userId,
                                 'date': selectedDate!.toIso8601String(),
                                 'reason': reasonController.text,
                                 'requested_in': inController.text.isEmpty ? null : inController.text,
@@ -240,7 +240,7 @@ class _RegularizationScreenState extends State<RegularizationScreen> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 final req = _requests[i];
-                final isOwn = req['employee_id'] == userId;
+                final isOwn = req['user_id'] == userId;
                 return ListTile(
                   leading: Icon(
                     req['status'] == 'approved'

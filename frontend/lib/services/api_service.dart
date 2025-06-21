@@ -144,85 +144,35 @@ class ApiService {
     }
   }
 
-  // Employee endpoints
-  static Future<List<dynamic>> listEmployees(String tenantId) async {
+  static Future<List<dynamic>> listUsers(String tenantId) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/employees'),
+      Uri.parse('$baseUrl/tenants/$tenantId/users'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception('Failed to list employees: ${response.body}');
+      throw Exception('Failed to list users: ${response.body}');
     }
   }
 
-  static Future<Map<String, dynamic>> createEmployee(String tenantId, Map<String, dynamic> employee) async {
+  static Future<Map<String, dynamic>> createUser(String tenantId, Map<String, dynamic> user) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/employees'),
+      Uri.parse('$baseUrl/tenants/$tenantId/users'),
       headers: _headers,
-      body: jsonEncode(employee),
+      body: jsonEncode(user),
     );
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception('Failed to create employee: ${response.body}');
-    }
-  }
-
-  // Branch endpoints
-  static Future<List<dynamic>> listBranches(String tenantId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/branches'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to list branches: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> createBranch(String tenantId, Map<String, dynamic> branch) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/branches'),
-      headers: _headers,
-      body: jsonEncode(branch),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to create branch: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> updateBranch(String tenantId, String branchId, Map<String, dynamic> branch) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/tenants/$tenantId/branches/$branchId'),
-      headers: _headers,
-      body: jsonEncode(branch),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to update branch: ${response.body}');
-    }
-  }
-
-  static Future<void> deleteBranch(String tenantId, String branchId) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/tenants/$tenantId/branches/$branchId'),
-      headers: _headers,
-    );
-    if (response.statusCode != 204) {
-      throw Exception('Failed to delete branch: ${response.body}');
+      throw Exception('Failed to create user: ${response.body}');
     }
   }
 
   // Department endpoints
   static Future<List<dynamic>> listDepartments(String tenantId) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/departments'),
+      Uri.parse('$baseUrl/departments'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -234,7 +184,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> createDepartment(String tenantId, Map<String, dynamic> department) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/departments'),
+      Uri.parse('$baseUrl/departments'),
       headers: _headers,
       body: jsonEncode(department),
     );
@@ -247,7 +197,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> updateDepartment(String tenantId, String departmentId, Map<String, dynamic> department) async {
     final response = await http.put(
-      Uri.parse('$baseUrl/tenants/$tenantId/departments/$departmentId'),
+      Uri.parse('$baseUrl/departments/$departmentId'),
       headers: _headers,
       body: jsonEncode(department),
     );
@@ -260,11 +210,60 @@ class ApiService {
 
   static Future<void> deleteDepartment(String tenantId, String departmentId) async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/tenants/$tenantId/departments/$departmentId'),
+      Uri.parse('$baseUrl/departments/$departmentId'),
       headers: _headers,
     );
-    if (response.statusCode != 204) {
+    if (response.statusCode != 200) {
       throw Exception('Failed to delete department: ${response.body}');
+    }
+  }
+
+  // Branch endpoints
+  static Future<List<dynamic>> listBranches(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/branches'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list branches: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createBranch(String tenantId, Map<String, dynamic> branch) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/branches'),
+      headers: _headers,
+      body: jsonEncode(branch),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create branch: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateBranch(String tenantId, String branchId, Map<String, dynamic> branch) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/branches/$branchId'),
+      headers: _headers,
+      body: jsonEncode(branch),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update branch: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteBranch(String tenantId, String branchId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/branches/$branchId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete branch: ${response.body}');
     }
   }
 
@@ -333,9 +332,9 @@ class ApiService {
     }
   }
 
-  static Future<List<dynamic>> getEffectivePolicy(String tenantId, String employeeId) async {
+  static Future<List<dynamic>> getEffectivePolicy(String tenantId, String userId) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/employees/$employeeId/effective-policy'),
+      Uri.parse('$baseUrl/tenants/$tenantId/users/$userId/effective-policy'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
@@ -655,6 +654,104 @@ class ApiService {
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to delete tenant: ${response.body}');
+    }
+  }
+
+  // Client CRUD endpoints
+  static Future<List<dynamic>> listClients() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/clients'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list clients: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createClient(Map<String, dynamic> client) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clients'),
+      headers: _headers,
+      body: jsonEncode(client),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create client: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateClient(String clientId, Map<String, dynamic> client) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/clients/$clientId'),
+      headers: _headers,
+      body: jsonEncode(client),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update client: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteClient(String clientId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/clients/$clientId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete client: ${response.body}');
+    }
+  }
+
+  // Project CRUD endpoints
+  static Future<List<dynamic>> listProjects() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/projects'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list projects: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createProject(Map<String, dynamic> project) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/projects'),
+      headers: _headers,
+      body: jsonEncode(project),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create project: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateProject(String projectId, Map<String, dynamic> project) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/projects/$projectId'),
+      headers: _headers,
+      body: jsonEncode(project),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update project: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteProject(String projectId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/projects/$projectId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete project: ${response.body}');
     }
   }
 } 
