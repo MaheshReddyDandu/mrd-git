@@ -1,13 +1,41 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:8000';
+  static const String _tokenKey = 'auth_token';
   static String? _token;
 
-  static void setToken(String token) {
+  static Future<void> initialize() async {
+    // Load token from shared preferences on app start
+    final prefs = await SharedPreferences.getInstance();
+    _token = prefs.getString(_tokenKey);
+    print('Loaded token from storage: ${_token != null ? _token!.substring(0, _token!.length > 10 ? 10 : _token!.length) + '...' : 'null'}');
+  }
+
+  static Future<void> setToken(String token) async {
     print('Setting token: ${token.substring(0, token.length > 10 ? 10 : token.length)}...');
     _token = token;
+    
+    // Save token to shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+    print('Token saved to storage');
+  }
+
+  static Future<void> clearToken() async {
+    print('Clearing token');
+    _token = null;
+    
+    // Remove token from shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    print('Token removed from storage');
   }
 
   static Map<String, String> get _headers {
@@ -49,7 +77,7 @@ class ApiService {
     print('Login response body: ${response.body}');
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      _token = data['access_token'];
+      await setToken(data['access_token']);
       return data;
     } else {
       throw Exception('Failed to login: ${response.body}');
@@ -94,14 +122,29 @@ class ApiService {
   }
 
   // Enhanced Attendance endpoints
+  static Future<String> getUserTimezone() async {
+    try {
+      if (kIsWeb) {
+        // Web: Use Intl or fallback
+        return DateTime.now().timeZoneName;
+      } else {
+        // Mobile/Desktop: Use native_timezone package
+        return await FlutterNativeTimezone.getLocalTimezone();
+      }
+    } catch (e) {
+      return 'UTC';
+    }
+  }
+
   static Future<Map<String, dynamic>> clockInOut(String action, {
     double? latitude,
     double? longitude,
     String? locationAddress,
     String? deviceInfo,
   }) async {
+    final tz = await getUserTimezone();
     final response = await http.post(
-      Uri.parse('$baseUrl/attendance/clock-in-out'),
+      Uri.parse('$baseUrl/attendance/clock-in-out?timezone=$tz'),
       headers: _headers,
       body: jsonEncode({
         'action': action,
@@ -138,8 +181,29 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getMyAttendanceLogs({String? date}) async {
-    final queryParams = <String, String>{};
+    final tz = await getUserTimezone();
+    final queryParams = <String, String>{'timezone': tz};
     if (date != null) queryParams['date'] = date;
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/attendance/my-logs').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get attendance logs: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getMyAttendanceLogsForRange({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final tz = await getUserTimezone();
+    final queryParams = <String, String>{'timezone': tz};
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
 
     final response = await http.get(
       Uri.parse('$baseUrl/attendance/my-logs').replace(queryParameters: queryParams),
@@ -161,6 +225,18 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to get current session: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getMyAttendanceDetail(String date) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/attendance/my-detail/$date'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get attendance detail: ${response.body}');
     }
   }
 

@@ -228,10 +228,12 @@ class DepartmentResponse(DepartmentBase):
 class AttendanceBase(BaseModel):
     user_id: uuid.UUID
     date: date
-    clock_in: Optional[datetime] = None
-    clock_out: Optional[datetime] = None
-    location: Optional[str] = None
-    status: Optional[str] = None
+    total_work_hours: Optional[float] = 0.0
+    total_sessions: Optional[int] = 0
+    status: Optional[str] = "Present"
+    shift_type: Optional[str] = None
+    work_mode: Optional[str] = None
+    policy_id: Optional[uuid.UUID] = None
 
 class AttendanceCreate(AttendanceBase):
     tenant_id: uuid.UUID
@@ -240,12 +242,35 @@ class AttendanceResponse(AttendanceBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    class Config:
+        from_attributes = True
+
+class AttendanceSessionBase(BaseModel):
+    user_id: uuid.UUID
+    attendance_id: uuid.UUID
+    session_number: int
+    clock_in: datetime
+    clock_out: Optional[datetime] = None
+    work_hours: Optional[float] = 0.0
+    break_duration: Optional[int] = 0
+    status: Optional[str] = "Active"
+
+class AttendanceSessionCreate(AttendanceSessionBase):
+    tenant_id: uuid.UUID
+
+class AttendanceSessionResponse(AttendanceSessionBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
 class AttendanceLogBase(BaseModel):
     user_id: uuid.UUID
     attendance_id: uuid.UUID
+    session_id: Optional[uuid.UUID] = None
     action: str  # clock_in, clock_out, break_start, break_end
     timestamp: datetime
     latitude: Optional[float] = None
@@ -253,6 +278,11 @@ class AttendanceLogBase(BaseModel):
     location_address: Optional[str] = None
     device_info: Optional[str] = None
     ip_address: Optional[str] = None
+    shift_timing: Optional[str] = None
+    shift_type: Optional[str] = None
+    work_mode: Optional[str] = None
+    policy_applied: Optional[str] = None
+    status: Optional[str] = None
 
 class AttendanceLogCreate(AttendanceLogBase):
     tenant_id: uuid.UUID
@@ -277,6 +307,15 @@ class AttendanceSummaryResponse(BaseModel):
     present: int
     late: int
     absent: int
+    class Config:
+        from_attributes = True
+
+class AttendanceDetailResponse(BaseModel):
+    attendance: AttendanceResponse
+    sessions: List[AttendanceSessionResponse]
+    logs: List[AttendanceLogResponse]
+    shift_info: Optional[Dict[str, Any]] = None
+    policy_info: Optional[Dict[str, Any]] = None
     class Config:
         from_attributes = True
 

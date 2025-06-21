@@ -1,20 +1,21 @@
 # main.py
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 import jwt
 import bcrypt
 from typing import Optional, List
 import uvicorn
 import uuid
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
+from zoneinfo import ZoneInfo
 
 from database import get_db, engine, Base
 from models import (
-    User, Role, UserRole, Tenant, Branch, Department, Attendance, Policy, PolicyAssignment, 
+    User, Role, UserRole, Tenant, Branch, Department, Attendance, AttendanceSession, Policy, PolicyAssignment, 
     RegularizationRequest, Client, Project, AttendanceLog, Holiday, WeekOff, LeaveType, LeaveRequest
 )
 from schemas import (
@@ -22,7 +23,7 @@ from schemas import (
     TenantCreate, TenantResponse,
     BranchCreate, BranchResponse,
     DepartmentCreate, DepartmentResponse,
-    AttendanceCreate, AttendanceResponse,
+    AttendanceCreate, AttendanceResponse, AttendanceSessionResponse, AttendanceDetailResponse,
     AttendanceLogCreate, AttendanceLogResponse, ClockInOutRequest,
     PolicyCreate, PolicyResponse, PolicyUpdate,
     PolicyAssignmentCreate, PolicyAssignmentResponse,
@@ -781,58 +782,181 @@ def delete_user(user_id: uuid.UUID, db: Session = Depends(get_db), current_user:
 @app.post("/attendance/clock-in-out", response_model=AttendanceLogResponse)
 async def clock_in_out(
     request: ClockInOutRequest,
+    user_timezone: str = Query(None, description="IANA timezone name, e.g. 'Asia/Kolkata'"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Enhanced clock in/out with GPS tracking and multiple sessions support"""
+    """Enhanced clock in/out with GPS tracking, multiple sessions, and policy integration"""
     try:
-        now = datetime.utcnow()
-        today = now.date()
+        # Always use UTC for storage
+        now_utc = datetime.now(timezone.utc)
+        today_utc = now_utc.date()
         
-        # Get or create attendance record for today
+        # Get or create attendance record for today (in UTC)
         attendance = db.query(Attendance).filter(
             Attendance.tenant_id == current_user.tenant_id,
             Attendance.user_id == current_user.id,
-            Attendance.date == today
+            Attendance.date == today_utc
         ).first()
         
         if not attendance:
             attendance = Attendance(
                 tenant_id=current_user.tenant_id,
                 user_id=current_user.id,
-                date=today,
+                date=today_utc,
                 status="Present"
             )
             db.add(attendance)
             db.commit()
             db.refresh(attendance)
         
+        # Get user's effective policies
+        or_clauses = [
+            PolicyAssignment.user_id == current_user.id,
+            PolicyAssignment.department_id == current_user.department_id,
+            PolicyAssignment.user_id.is_(None),
+            PolicyAssignment.department_id.is_(None),
+            PolicyAssignment.branch_id.is_(None)
+        ]
+        if getattr(current_user, 'department', None) and getattr(current_user.department, 'branch_id', None):
+            or_clauses.append(PolicyAssignment.branch_id == current_user.department.branch_id)
+        # Remove any None values from or_clauses
+        or_clauses = [clause for clause in or_clauses if clause is not None]
+        print(f"[DEBUG] Policy or_ clauses: {or_clauses}")
+        policies = db.query(Policy).join(PolicyAssignment).filter(
+            PolicyAssignment.tenant_id == current_user.tenant_id,
+            or_(*or_clauses),
+            Policy.type == "time",
+            Policy.is_active == True
+        ).all()
+        
+        # Get shift and policy information
+        shift_info = {}
+        policy_applied = None
+        if policies:
+            # For now, use the first policy (in production, implement priority logic)
+            policy = policies[0]
+            policy_applied = policy.name
+            rules = policy.rules
+            shift_info = {
+                "shift_timing": f"{rules.get('start_time', '09:00')}-{rules.get('end_time', '18:00')}",
+                "shift_type": rules.get('shift_type', 'Regular'),
+                "work_mode": rules.get('work_mode', 'Office'),
+                "grace_period": rules.get('grace_period', 15),
+                "late_threshold": rules.get('late_threshold', 30)
+            }
+        
+        # Determine status based on policy
+        status = "On Time"
+        if request.action == "clock_in" and shift_info:
+            start_time_str = shift_info["shift_timing"].split("-")[0]
+            start_time = datetime.strptime(start_time_str, "%H:%M").time()
+            grace_minutes = shift_info["grace_period"]
+            late_threshold = shift_info["late_threshold"]
+            
+            clock_in_time = now_utc.time()
+            start_dt = datetime.combine(today_utc, start_time)
+            clock_in_dt = datetime.combine(today_utc, clock_in_time)
+            
+            minutes_late = (clock_in_dt - start_dt).total_seconds() / 60
+            
+            if minutes_late <= grace_minutes:
+                status = "On Time"
+            elif minutes_late <= late_threshold:
+                status = "Late"
+            else:
+                status = "Very Late"
+        
+        # Handle multiple sessions
+        current_session = None
+        if request.action == "clock_in":
+            # Check if there's an active session
+            active_session = db.query(AttendanceSession).filter(
+                AttendanceSession.tenant_id == current_user.tenant_id,
+                AttendanceSession.user_id == current_user.id,
+                AttendanceSession.attendance_id == attendance.id,
+                AttendanceSession.clock_out.is_(None)
+            ).first()
+            
+            if active_session:
+                # Clock out the previous session first
+                active_session.clock_out = now_utc
+                active_session.work_hours = (now_utc - active_session.clock_in).total_seconds() / 3600
+                active_session.status = "Completed"
+            
+            # Create new session
+            session_number = attendance.total_sessions + 1
+            current_session = AttendanceSession(
+                tenant_id=current_user.tenant_id,
+                user_id=current_user.id,
+                attendance_id=attendance.id,
+                session_number=session_number,
+                clock_in=now_utc
+            )
+            db.add(current_session)
+            attendance.total_sessions = session_number
+            
+        elif request.action == "clock_out":
+            # Find the active session
+            current_session = db.query(AttendanceSession).filter(
+                AttendanceSession.tenant_id == current_user.tenant_id,
+                AttendanceSession.user_id == current_user.id,
+                AttendanceSession.attendance_id == attendance.id,
+                AttendanceSession.clock_out.is_(None)
+            ).first()
+            
+            if current_session:
+                current_session.clock_out = now_utc
+                current_session.work_hours = (now_utc - current_session.clock_in).total_seconds() / 3600
+                current_session.status = "Completed"
+        
         # Create attendance log entry
         log_entry = AttendanceLog(
             tenant_id=current_user.tenant_id,
             user_id=current_user.id,
             attendance_id=attendance.id,
+            session_id=current_session.id if current_session else None,
             action=request.action,
-            timestamp=now,
+            timestamp=now_utc,
             latitude=request.latitude,
             longitude=request.longitude,
             location_address=request.location_address,
             device_info=request.device_info,
-            ip_address="127.0.0.1"  # In production, get from request
+            ip_address="127.0.0.1",  # In production, get from request
+            shift_timing=shift_info.get("shift_timing"),
+            shift_type=shift_info.get("shift_type"),
+            work_mode=shift_info.get("work_mode"),
+            policy_applied=policy_applied,
+            status=status
         )
         db.add(log_entry)
         
         # Update attendance record
-        if request.action == "clock_in":
-            attendance.clock_in = now
-        elif request.action == "clock_out":
-            attendance.clock_out = now
+        if current_session and current_session.clock_out:
+            # Recalculate total work hours
+            total_hours = db.query(func.sum(AttendanceSession.work_hours)).filter(
+                AttendanceSession.attendance_id == attendance.id
+            ).scalar() or 0.0
+            attendance.total_work_hours = total_hours
         
         db.commit()
         db.refresh(log_entry)
+        # Convert to user's timezone for response
+        if user_timezone:
+            try:
+                tz = ZoneInfo(user_timezone)
+                if log_entry.timestamp:
+                    log_entry.timestamp = log_entry.timestamp.astimezone(tz)
+                if hasattr(log_entry, 'created_at') and log_entry.created_at:
+                    log_entry.created_at = log_entry.created_at.astimezone(tz)
+            except Exception as tz_err:
+                print(f"[WARN] Invalid timezone provided: {user_timezone}. Error: {tz_err}")
+                pass
         return log_entry
-        
     except Exception as e:
+        import traceback
+        print(f"[ERROR] Exception in clock_in_out: {str(e)}")
+        traceback.print_exc()
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error processing attendance: {str(e)}")
 
@@ -860,6 +984,8 @@ async def get_my_attendance_records(
 @app.get("/attendance/my-logs", response_model=List[AttendanceLogResponse])
 async def get_my_attendance_logs(
     date: Optional[date] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -870,10 +996,64 @@ async def get_my_attendance_logs(
     )
     
     if date:
+        # Single date query
         query = query.filter(func.date(AttendanceLog.timestamp) == date)
+    elif start_date and end_date:
+        # Date range query
+        query = query.filter(
+            func.date(AttendanceLog.timestamp) >= start_date,
+            func.date(AttendanceLog.timestamp) <= end_date
+        )
+    elif start_date:
+        # From start date onwards
+        query = query.filter(func.date(AttendanceLog.timestamp) >= start_date)
+    elif end_date:
+        # Up to end date
+        query = query.filter(func.date(AttendanceLog.timestamp) <= end_date)
     
     logs = query.order_by(AttendanceLog.timestamp.desc()).all()
     return logs
+
+@app.get("/attendance/my-detail/{date}", response_model=AttendanceDetailResponse)
+async def get_my_attendance_detail(
+    date: date,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed attendance information for a specific date"""
+    attendance = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.user_id == current_user.id,
+        Attendance.date == date
+    ).first()
+    
+    if not attendance:
+        raise HTTPException(status_code=404, detail="Attendance record not found")
+    
+    sessions = db.query(AttendanceSession).filter(
+        AttendanceSession.attendance_id == attendance.id
+    ).order_by(AttendanceSession.session_number).all()
+    
+    logs = db.query(AttendanceLog).filter(
+        AttendanceLog.attendance_id == attendance.id
+    ).order_by(AttendanceLog.timestamp.desc()).all()
+    
+    # Get policy information
+    policy_info = None
+    if attendance.policy_id:
+        policy = db.query(Policy).filter(Policy.id == attendance.policy_id).first()
+        if policy:
+            policy_info = {
+                "name": policy.name,
+                "rules": policy.rules
+            }
+    
+    return AttendanceDetailResponse(
+        attendance=attendance,
+        sessions=sessions,
+        logs=logs,
+        policy_info=policy_info
+    )
 
 @app.get("/attendance/current-session")
 async def get_current_session(
@@ -881,33 +1061,57 @@ async def get_current_session(
     db: Session = Depends(get_db)
 ):
     """Get current user's active attendance session"""
-    today = datetime.utcnow().date()
-    
-    attendance = db.query(Attendance).filter(
-        Attendance.tenant_id == current_user.tenant_id,
-        Attendance.user_id == current_user.id,
-        Attendance.date == today
-    ).first()
-    
-    if not attendance or not attendance.clock_in:
-        return {"is_clocked_in": False, "session_duration": None}
-    
-    if attendance.clock_out:
-        duration = attendance.clock_out - attendance.clock_in
-        return {
-            "is_clocked_in": False,
-            "session_duration": str(duration),
-            "clock_in": attendance.clock_in,
-            "clock_out": attendance.clock_out
-        }
-    else:
-        duration = datetime.utcnow() - attendance.clock_in
+    try:
+        print(f"[DEBUG] Current session called for user: {current_user.email}, tenant_id: {current_user.tenant_id}")
+        today = datetime.now().date()
+        print(f"[DEBUG] Today's date: {today}")
+        
+        attendance = db.query(Attendance).filter(
+            Attendance.tenant_id == current_user.tenant_id,
+            Attendance.user_id == current_user.id,
+            Attendance.date == today
+        ).first()
+        
+        print(f"[DEBUG] Attendance record found: {attendance is not None}")
+        
+        if not attendance:
+            return {"is_clocked_in": False, "session_duration": None}
+        
+        # Get active session
+        active_session = db.query(AttendanceSession).filter(
+            AttendanceSession.tenant_id == current_user.tenant_id,
+            AttendanceSession.user_id == current_user.id,
+            AttendanceSession.attendance_id == attendance.id,
+            AttendanceSession.clock_out.is_(None)
+        ).first()
+        
+        print(f"[DEBUG] Active session found: {active_session is not None}")
+        
+        if not active_session:
+            return {
+                "is_clocked_in": False,
+                "total_work_hours": attendance.total_work_hours,
+                "total_sessions": attendance.total_sessions,
+                "status": attendance.status
+            }
+        
+        duration = datetime.now(timezone.utc) - active_session.clock_in.replace(tzinfo=timezone.utc) if active_session.clock_in.tzinfo is None else active_session.clock_in
+        print(f"[DEBUG] Duration calculated: {duration}")
+        
         return {
             "is_clocked_in": True,
             "session_duration": str(duration),
-            "clock_in": attendance.clock_in,
-            "current_time": datetime.utcnow()
+            "clock_in": active_session.clock_in.isoformat() if active_session.clock_in else None,
+            "session_number": active_session.session_number,
+            "total_work_hours": attendance.total_work_hours,
+            "total_sessions": attendance.total_sessions,
+            "current_time": datetime.now(timezone.utc).isoformat()
         }
+    except Exception as e:
+        print(f"[ERROR] Exception in current session: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # Enhanced Policy Endpoints
 @app.post("/policies", response_model=PolicyResponse)

@@ -5,10 +5,12 @@ import 'policy_screen.dart';
 import 'regularization_screen.dart';
 import 'analytics_screen.dart';
 import 'change_password_screen.dart';
+import 'settings_screen.dart';
 import '../services/api_service.dart';
 import 'organization/organization_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
 import 'policy_management/policy_management_dashboard.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -58,9 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _logout() async {
     print('Logging out...');
     // Clear token
-    ApiService.setToken('');
+    await ApiService.clearToken();
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/login');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
     }
   }
 
@@ -137,6 +141,12 @@ class _HomeScreenState extends State<HomeScreen> {
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
+                case 'settings':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                  );
+                  break;
                 case 'profile':
                   Navigator.push(
                     context,
@@ -149,6 +159,16 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'profile',
                 child: Row(

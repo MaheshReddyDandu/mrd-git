@@ -170,11 +170,29 @@ class Attendance(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     date = Column(Date, nullable=False)
-    clock_in = Column(DateTime)
-    clock_out = Column(DateTime)
-    location = Column(String)
-    status = Column(String)
+    total_work_hours = Column(Float, default=0.0)  # Total hours worked in the day
+    total_sessions = Column(Integer, default=0)  # Number of clock in/out sessions
+    status = Column(String, default="Present")  # Present, Absent, Late, Half-day, Holiday, Week-off, Leave
+    shift_type = Column(String, nullable=True)  # Regular, Night, Flexible, etc.
+    work_mode = Column(String, nullable=True)  # Office, WFH, Hybrid
+    policy_id = Column(UUID(as_uuid=True), ForeignKey("policies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class AttendanceSession(Base):
+    __tablename__ = "attendance_sessions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    attendance_id = Column(UUID(as_uuid=True), ForeignKey("attendance.id"), nullable=False)
+    session_number = Column(Integer, nullable=False)  # 1, 2, 3, etc. for multiple sessions
+    clock_in = Column(DateTime(timezone=True), nullable=False)
+    clock_out = Column(DateTime(timezone=True), nullable=True)
+    work_hours = Column(Float, default=0.0)  # Hours worked in this session
+    break_duration = Column(Integer, default=0)  # Break duration in minutes
+    status = Column(String, default="Active")  # Active, Completed, Regularized
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class AttendanceLog(Base):
     __tablename__ = "attendance_logs"
@@ -182,6 +200,7 @@ class AttendanceLog(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     attendance_id = Column(UUID(as_uuid=True), ForeignKey("attendance.id"), nullable=False)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("attendance_sessions.id"), nullable=True)
     action = Column(String, nullable=False)  # clock_in, clock_out, break_start, break_end
     timestamp = Column(DateTime(timezone=True), nullable=False)
     latitude = Column(Float)
@@ -189,6 +208,11 @@ class AttendanceLog(Base):
     location_address = Column(String)
     device_info = Column(String)  # Device type, OS, etc.
     ip_address = Column(String)
+    shift_timing = Column(String, nullable=True)  # e.g., "09:00-18:00"
+    shift_type = Column(String, nullable=True)  # Regular, Night, Flexible
+    work_mode = Column(String, nullable=True)  # Office, WFH, Hybrid
+    policy_applied = Column(String, nullable=True)  # Policy name that was applied
+    status = Column(String, nullable=True)  # On Time, Late, Early, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 # Enhanced Policy Models
