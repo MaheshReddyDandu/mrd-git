@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import jwt
 import bcrypt
 from typing import Optional, List
@@ -13,21 +13,29 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from database import get_db, engine, Base
-from models import User, Role, UserRole, Tenant, Branch, Department, Attendance, Policy, PolicyAssignment, RegularizationRequest, Client, Project
+from models import (
+    User, Role, UserRole, Tenant, Branch, Department, Attendance, Policy, PolicyAssignment, 
+    RegularizationRequest, Client, Project, AttendanceLog, Holiday, WeekOff, LeaveType, LeaveRequest
+)
 from schemas import (
     UserCreate, UserResponse, UserLogin, TokenResponse, RoleResponse,
     TenantCreate, TenantResponse,
     BranchCreate, BranchResponse,
     DepartmentCreate, DepartmentResponse,
     AttendanceCreate, AttendanceResponse,
-    PolicyCreate, PolicyResponse,
+    AttendanceLogCreate, AttendanceLogResponse, ClockInOutRequest,
+    PolicyCreate, PolicyResponse, PolicyUpdate,
     PolicyAssignmentCreate, PolicyAssignmentResponse,
     RegularizationRequestCreate, RegularizationRequestApprove, RegularizationRequestResponse,
     ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest,
     UserSignupClient, UserAddByAdmin,
     ClientCreate, ClientUpdate, ClientResponse,
     ProjectCreate, ProjectUpdate, ProjectResponse,
-    RoleCreate, RoleUpdate, DepartmentUpdate, BranchUpdate, UserUpdate
+    RoleCreate, RoleUpdate, DepartmentUpdate, BranchUpdate, UserUpdate,
+    HolidayCreate, HolidayResponse, HolidayUpdate,
+    WeekOffCreate, WeekOffResponse, WeekOffUpdate,
+    LeaveTypeCreate, LeaveTypeResponse, LeaveTypeUpdate,
+    LeaveRequestCreate, LeaveRequestResponse, LeaveRequestUpdate, LeaveApprovalRequest
 )
 from auth import create_access_token, verify_token, get_current_user, require_roles
 
@@ -768,6 +776,423 @@ def delete_user(user_id: uuid.UUID, db: Session = Depends(get_db), current_user:
     db.delete(db_user)
     db.commit()
     return {"detail": "User deleted"}
+
+# Enhanced Attendance Endpoints
+@app.post("/attendance/clock-in-out", response_model=AttendanceLogResponse)
+async def clock_in_out(
+    request: ClockInOutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Enhanced clock in/out with GPS tracking and multiple sessions support"""
+    try:
+        now = datetime.utcnow()
+        today = now.date()
+        
+        # Get or create attendance record for today
+        attendance = db.query(Attendance).filter(
+            Attendance.tenant_id == current_user.tenant_id,
+            Attendance.user_id == current_user.id,
+            Attendance.date == today
+        ).first()
+        
+        if not attendance:
+            attendance = Attendance(
+                tenant_id=current_user.tenant_id,
+                user_id=current_user.id,
+                date=today,
+                status="Present"
+            )
+            db.add(attendance)
+            db.commit()
+            db.refresh(attendance)
+        
+        # Create attendance log entry
+        log_entry = AttendanceLog(
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            attendance_id=attendance.id,
+            action=request.action,
+            timestamp=now,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            location_address=request.location_address,
+            device_info=request.device_info,
+            ip_address="127.0.0.1"  # In production, get from request
+        )
+        db.add(log_entry)
+        
+        # Update attendance record
+        if request.action == "clock_in":
+            attendance.clock_in = now
+        elif request.action == "clock_out":
+            attendance.clock_out = now
+        
+        db.commit()
+        db.refresh(log_entry)
+        return log_entry
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error processing attendance: {str(e)}")
+
+@app.get("/attendance/my-records", response_model=List[AttendanceResponse])
+async def get_my_attendance_records(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get current user's attendance records with optional date filtering"""
+    query = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.user_id == current_user.id
+    )
+    
+    if start_date:
+        query = query.filter(Attendance.date >= start_date)
+    if end_date:
+        query = query.filter(Attendance.date <= end_date)
+    
+    records = query.order_by(Attendance.date.desc()).all()
+    return records
+
+@app.get("/attendance/my-logs", response_model=List[AttendanceLogResponse])
+async def get_my_attendance_logs(
+    date: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get current user's detailed attendance logs"""
+    query = db.query(AttendanceLog).filter(
+        AttendanceLog.tenant_id == current_user.tenant_id,
+        AttendanceLog.user_id == current_user.id
+    )
+    
+    if date:
+        query = query.filter(func.date(AttendanceLog.timestamp) == date)
+    
+    logs = query.order_by(AttendanceLog.timestamp.desc()).all()
+    return logs
+
+@app.get("/attendance/current-session")
+async def get_current_session(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get current user's active attendance session"""
+    today = datetime.utcnow().date()
+    
+    attendance = db.query(Attendance).filter(
+        Attendance.tenant_id == current_user.tenant_id,
+        Attendance.user_id == current_user.id,
+        Attendance.date == today
+    ).first()
+    
+    if not attendance or not attendance.clock_in:
+        return {"is_clocked_in": False, "session_duration": None}
+    
+    if attendance.clock_out:
+        duration = attendance.clock_out - attendance.clock_in
+        return {
+            "is_clocked_in": False,
+            "session_duration": str(duration),
+            "clock_in": attendance.clock_in,
+            "clock_out": attendance.clock_out
+        }
+    else:
+        duration = datetime.utcnow() - attendance.clock_in
+        return {
+            "is_clocked_in": True,
+            "session_duration": str(duration),
+            "clock_in": attendance.clock_in,
+            "current_time": datetime.utcnow()
+        }
+
+# Enhanced Policy Endpoints
+@app.post("/policies", response_model=PolicyResponse)
+async def create_policy(
+    policy: PolicyCreate,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Create a new policy"""
+    db_policy = Policy(**policy.dict())
+    db.add(db_policy)
+    db.commit()
+    db.refresh(db_policy)
+    return db_policy
+
+@app.get("/policies", response_model=List[PolicyResponse])
+async def list_policies(
+    policy_type: Optional[str] = None,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """List all policies with optional type filtering"""
+    query = db.query(Policy).filter(Policy.tenant_id == current_user.tenant_id)
+    
+    if policy_type:
+        query = query.filter(Policy.type == policy_type)
+    
+    policies = query.order_by(Policy.created_at.desc()).all()
+    return policies
+
+@app.get("/policies/{policy_id}", response_model=PolicyResponse)
+async def get_policy(
+    policy_id: uuid.UUID,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Get a specific policy"""
+    policy = db.query(Policy).filter(
+        Policy.id == policy_id,
+        Policy.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    return policy
+
+@app.put("/policies/{policy_id}", response_model=PolicyResponse)
+async def update_policy(
+    policy_id: uuid.UUID,
+    policy_update: PolicyUpdate,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Update a policy"""
+    policy = db.query(Policy).filter(
+        Policy.id == policy_id,
+        Policy.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    for key, value in policy_update.dict(exclude_unset=True).items():
+        setattr(policy, key, value)
+    
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+@app.delete("/policies/{policy_id}")
+async def delete_policy(
+    policy_id: uuid.UUID,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Delete a policy"""
+    policy = db.query(Policy).filter(
+        Policy.id == policy_id,
+        Policy.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    db.delete(policy)
+    db.commit()
+    return {"detail": "Policy deleted successfully"}
+
+# Calendar and Holiday Endpoints
+@app.post("/holidays", response_model=HolidayResponse)
+async def create_holiday(
+    holiday: HolidayCreate,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Create a new holiday"""
+    db_holiday = Holiday(**holiday.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_holiday)
+    db.commit()
+    db.refresh(db_holiday)
+    return db_holiday
+
+@app.get("/holidays", response_model=List[HolidayResponse])
+async def list_holidays(
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List holidays with optional year filtering"""
+    query = db.query(Holiday).filter(
+        Holiday.tenant_id == current_user.tenant_id,
+        Holiday.is_active == True
+    )
+    
+    if year:
+        query = query.filter(func.extract('year', Holiday.date) == year)
+    
+    holidays = query.order_by(Holiday.date).all()
+    return holidays
+
+@app.post("/week-offs", response_model=WeekOffResponse)
+async def create_week_off(
+    week_off: WeekOffCreate,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Create a new week off day"""
+    db_week_off = WeekOff(**week_off.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_week_off)
+    db.commit()
+    db.refresh(db_week_off)
+    return db_week_off
+
+@app.get("/week-offs", response_model=List[WeekOffResponse])
+async def list_week_offs(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List all week off days"""
+    week_offs = db.query(WeekOff).filter(
+        WeekOff.tenant_id == current_user.tenant_id,
+        WeekOff.is_active == True
+    ).all()
+    return week_offs
+
+# Leave Management Endpoints
+@app.post("/leave-types", response_model=LeaveTypeResponse)
+async def create_leave_type(
+    leave_type: LeaveTypeCreate,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Create a new leave type"""
+    db_leave_type = LeaveType(**leave_type.dict(), tenant_id=current_user.tenant_id)
+    db.add(db_leave_type)
+    db.commit()
+    db.refresh(db_leave_type)
+    return db_leave_type
+
+@app.get("/leave-types", response_model=List[LeaveTypeResponse])
+async def list_leave_types(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List all leave types"""
+    leave_types = db.query(LeaveType).filter(
+        LeaveType.tenant_id == current_user.tenant_id,
+        LeaveType.is_active == True
+    ).all()
+    return leave_types
+
+@app.post("/leave-requests", response_model=LeaveRequestResponse)
+async def create_leave_request(
+    leave_request: LeaveRequestCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new leave request"""
+    db_leave_request = LeaveRequest(
+        **leave_request.dict(),
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id
+    )
+    db.add(db_leave_request)
+    db.commit()
+    db.refresh(db_leave_request)
+    return db_leave_request
+
+@app.get("/leave-requests", response_model=List[LeaveRequestResponse])
+async def list_leave_requests(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List leave requests (user's own or all if admin)"""
+    if any(role.name in ["admin", "owner"] for role in current_user.roles):
+        # Admin can see all requests
+        query = db.query(LeaveRequest).filter(LeaveRequest.tenant_id == current_user.tenant_id)
+    else:
+        # Regular user sees only their own
+        query = db.query(LeaveRequest).filter(
+            LeaveRequest.tenant_id == current_user.tenant_id,
+            LeaveRequest.user_id == current_user.id
+        )
+    
+    if status:
+        query = query.filter(LeaveRequest.status == status)
+    
+    requests = query.order_by(LeaveRequest.created_at.desc()).all()
+    return requests
+
+@app.post("/leave-requests/{request_id}/approve", response_model=LeaveRequestResponse)
+async def approve_leave_request(
+    request_id: uuid.UUID,
+    approval: LeaveApprovalRequest,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Approve or reject a leave request"""
+    leave_request = db.query(LeaveRequest).filter(
+        LeaveRequest.id == request_id,
+        LeaveRequest.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not leave_request:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    
+    leave_request.status = approval.status
+    leave_request.approver_id = approval.approver_id
+    leave_request.approved_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(leave_request)
+    return leave_request
+
+# Policy Assignment Endpoints
+@app.post("/policy-assignments", response_model=PolicyAssignmentResponse)
+async def assign_policy(
+    assignment: PolicyAssignmentCreate,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Assign a policy to users, departments, branches, clients, or projects"""
+    db_assignment = PolicyAssignment(**assignment.dict())
+    db.add(db_assignment)
+    db.commit()
+    db.refresh(db_assignment)
+    return db_assignment
+
+@app.get("/users/{user_id}/effective-policies", response_model=List[PolicyResponse])
+async def get_user_effective_policies(
+    user_id: uuid.UUID,
+    current_user: User = Depends(require_roles(["admin", "owner"])),
+    db: Session = Depends(get_db)
+):
+    """Get all policies that apply to a specific user"""
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.tenant_id == current_user.tenant_id
+    ).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get all policy assignments that apply to this user
+    assignments = db.query(PolicyAssignment).filter(
+        PolicyAssignment.tenant_id == current_user.tenant_id,
+        ((PolicyAssignment.user_id == user_id) |
+         (PolicyAssignment.department_id == user.department_id) |
+         (PolicyAssignment.branch_id == db.query(Department.branch_id).filter(Department.id == user.department_id).scalar()) |
+         (PolicyAssignment.client_id == user.client_id) |
+         (PolicyAssignment.project_id == user.project_id) |
+         (PolicyAssignment.branch_id == None and PolicyAssignment.department_id == None and 
+          PolicyAssignment.user_id == None and PolicyAssignment.client_id == None and 
+          PolicyAssignment.project_id == None))
+    ).all()
+    
+    policy_ids = [a.policy_id for a in assignments]
+    policies = db.query(Policy).filter(
+        Policy.id.in_(policy_ids),
+        Policy.is_active == True
+    ).all()
+    
+    return policies
 
 if __name__ == "__main__":
     print("[SERVER] Starting FastAPI server on http://0.0.0.0:8000 ...")

@@ -49,9 +49,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _userData!['tenant_id'],
         startDate: _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : null,
         endDate: _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : null,
-        departmentId: _selectedDepartmentId,
-        employeeId: _selectedUserId,
-        status: _selectedStatus,
       );
       setState(() => _results = results);
     } catch (e) {

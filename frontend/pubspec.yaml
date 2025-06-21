@@ -38,6 +38,14 @@ dependencies:
   http: ^1.1.0
   provider: ^6.0.5
   shared_preferences: ^2.2.2
+  
+  # Location and GPS tracking
+  geolocator: ^10.1.0
+  geocoding: ^2.1.0
+  universal_io: ^2.2.2
+  
+  # URL launching for maps
+  url_launcher: ^6.2.1
 
 dev_dependencies:
   flutter_test:

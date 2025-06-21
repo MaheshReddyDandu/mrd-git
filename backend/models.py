@@ -1,5 +1,5 @@
 # models.py
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Index, Date
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, Index, Date, Float, Integer, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -163,11 +163,12 @@ class Department(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+# Enhanced Attendance Models
 class Attendance(Base):
     __tablename__ = "attendance"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Changed from employee_id
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     date = Column(Date, nullable=False)
     clock_in = Column(DateTime)
     clock_out = Column(DateTime)
@@ -175,15 +176,33 @@ class Attendance(Base):
     status = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class AttendanceLog(Base):
+    __tablename__ = "attendance_logs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    attendance_id = Column(UUID(as_uuid=True), ForeignKey("attendance.id"), nullable=False)
+    action = Column(String, nullable=False)  # clock_in, clock_out, break_start, break_end
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    location_address = Column(String)
+    device_info = Column(String)  # Device type, OS, etc.
+    ip_address = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# Enhanced Policy Models
 class Policy(Base):
     __tablename__ = "policies"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     name = Column(String, nullable=False)
-    type = Column(String, nullable=False)  # attendance, leave, penalty, etc.
+    type = Column(String, nullable=False)  # attendance, leave, calendar, time, leave
     level = Column(String, nullable=False)  # org, branch, department, user
-    rules = Column(Text, nullable=False)  # JSON string for flexible rules
+    rules = Column(JSONB, nullable=False)  # JSON for flexible rules
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 class PolicyAssignment(Base):
     __tablename__ = "policy_assignments"
@@ -192,21 +211,72 @@ class PolicyAssignment(Base):
     policy_id = Column(UUID(as_uuid=True), ForeignKey("policies.id"), nullable=False)
     branch_id = Column(UUID(as_uuid=True), ForeignKey("branches.id"), nullable=True)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Changed from employee_id
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# Calendar and Holiday Models
+class Holiday(Base):
+    __tablename__ = "holidays"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String, nullable=False)
+    date = Column(Date, nullable=False)
+    type = Column(String, default="holiday")  # holiday, optional_holiday, company_holiday
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class WeekOff(Base):
+    __tablename__ = "week_offs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    day_of_week = Column(Integer, nullable=False)  # 0=Monday, 6=Sunday
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# Leave Models
+class LeaveType(Base):
+    __tablename__ = "leave_types"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String, nullable=False)  # Annual Leave, Sick Leave, etc.
+    description = Column(Text)
+    default_days = Column(Integer, default=0)
+    is_paid = Column(Boolean, default=True)
+    requires_approval = Column(Boolean, default=True)
+    color = Column(String, default="#2196F3")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class LeaveRequest(Base):
+    __tablename__ = "leave_requests"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    leave_type_id = Column(UUID(as_uuid=True), ForeignKey("leave_types.id"), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    days_requested = Column(Float, nullable=False)
+    reason = Column(Text)
+    status = Column(String, default="pending")  # pending, approved, rejected, cancelled
+    approver_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class RegularizationRequest(Base):
     __tablename__ = "regularization_requests"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)  # Changed from employee_id
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     date = Column(Date, nullable=False)
     reason = Column(String, nullable=False)
     requested_in = Column(DateTime, nullable=True)
     requested_out = Column(DateTime, nullable=True)
     status = Column(String, default="pending")  # pending, approved, rejected
-    approver_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Changed from employee_id
-    approved_at = Column(DateTime, nullable=True)
+    approver_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class AuditLog(Base):

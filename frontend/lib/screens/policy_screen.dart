@@ -27,7 +27,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
     });
     try {
       final tenantId = await _getTenantId();
-      final policies = await ApiService.listPolicies(tenantId);
+      final policies = await ApiService.listPolicies();
       setState(() {
         _policies = policies;
         _isLoading = false;
@@ -114,7 +114,7 @@ class _PolicyScreenState extends State<PolicyScreen> {
                             setState(() => isSubmitting = true);
                             try {
                               final tenantId = await _getTenantId();
-                              await ApiService.createPolicy(tenantId, {
+                              await ApiService.createPolicy({
                                 'tenant_id': tenantId,
                                 'name': nameController.text,
                                 'type': typeController.text,
@@ -197,12 +197,12 @@ class _PolicyScreenState extends State<PolicyScreen> {
                           setState(() => isSubmitting = true);
                           try {
                             final tenantId = await _getTenantId();
-                            await ApiService.assignPolicy(tenantId, {
-                              'tenant_id': tenantId,
+                            await ApiService.assignPolicy({
                               'policy_id': policy['id'],
-                              'branch_id': branchIdController.text.isEmpty ? null : branchIdController.text,
-                              'department_id': departmentIdController.text.isEmpty ? null : departmentIdController.text,
-                              'user_id': userIdController.text.isEmpty ? null : userIdController.text,
+                              'tenant_id': tenantId,
+                              'branch_id': branchIdController.text,
+                              'department_id': departmentIdController.text,
+                              'user_id': userIdController.text,
                             });
                             if (mounted) {
                               Navigator.pop(context);

@@ -110,13 +110,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           if (formKey.currentState!.validate()) {
                             setState(() => isSubmitting = true);
                             try {
-                              final resp = await ApiService.signupClient(
-                                tenantName: tenantNameController.text,
-                                tenantContactEmail: tenantContactEmailController.text,
-                                ownerEmail: ownerEmailController.text,
-                                ownerUsername: ownerUsernameController.text,
-                                ownerPassword: ownerPasswordController.text,
-                              );
+                              final resp = await ApiService.signupClient({
+                                'tenant_name': tenantNameController.text,
+                                'tenant_contact_email': tenantContactEmailController.text,
+                                'owner_email': ownerEmailController.text,
+                                'owner_username': ownerUsernameController.text,
+                                'owner_password': ownerPasswordController.text,
+                              });
                               if (mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(

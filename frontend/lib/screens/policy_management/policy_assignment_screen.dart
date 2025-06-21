@@ -27,7 +27,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
       final userData = await ApiService.getCurrentUser();
       setState(() {
         _userData = userData;
-        _policiesFuture = ApiService.listPolicies(userData['tenant_id']);
+        _policiesFuture = ApiService.listPolicies();
         _branchesFuture = ApiService.listBranches(userData['tenant_id']);
         _departmentsFuture = ApiService.listDepartments(userData['tenant_id']);
         _usersFuture = ApiService.listUsers(userData['tenant_id']);
@@ -40,7 +40,7 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
   void _refreshPolicies() {
     if (_userData != null) {
       setState(() {
-        _policiesFuture = ApiService.listPolicies(_userData!['tenant_id']);
+        _policiesFuture = ApiService.listPolicies();
       });
     }
   }
@@ -171,20 +171,15 @@ class _PolicyAssignmentScreenState extends State<PolicyAssignmentScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
-                  final assignment = {
+                  await ApiService.assignPolicy({
                     'policy_id': policy['id'],
                     'tenant_id': _userData!['tenant_id'],
                     'branch_id': _selectedBranchId,
                     'department_id': _selectedDepartmentId,
                     'user_id': _selectedUserId,
-                  };
-                  try {
-                    await ApiService.assignPolicy(_userData!['tenant_id'], assignment);
-                    _refreshPolicies();
-                    Navigator.of(context).pop();
-                  } catch (e) {
-                    // show error
-                  }
+                  });
+                  _refreshPolicies();
+                  Navigator.of(context).pop();
                 }
               },
               child: const Text('Assign'),

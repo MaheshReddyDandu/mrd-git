@@ -1,7 +1,7 @@
 # schemas.py
 from pydantic import BaseModel, EmailStr, validator
-from typing import List, Optional
-from datetime import datetime, date
+from typing import List, Optional, Dict, Any
+from datetime import datetime, date, time
 import uuid
 
 class UserCreate(BaseModel):
@@ -224,9 +224,10 @@ class DepartmentResponse(DepartmentBase):
     class Config:
         from_attributes = True
 
+# Enhanced Attendance Schemas
 class AttendanceBase(BaseModel):
-    user_id: uuid.UUID  # Changed from employee_id
-    date: datetime
+    user_id: uuid.UUID
+    date: date
     clock_in: Optional[datetime] = None
     clock_out: Optional[datetime] = None
     location: Optional[str] = None
@@ -242,11 +243,50 @@ class AttendanceResponse(AttendanceBase):
     class Config:
         from_attributes = True
 
+class AttendanceLogBase(BaseModel):
+    user_id: uuid.UUID
+    attendance_id: uuid.UUID
+    action: str  # clock_in, clock_out, break_start, break_end
+    timestamp: datetime
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_address: Optional[str] = None
+    device_info: Optional[str] = None
+    ip_address: Optional[str] = None
+
+class AttendanceLogCreate(AttendanceLogBase):
+    tenant_id: uuid.UUID
+
+class AttendanceLogResponse(AttendanceLogBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class ClockInOutRequest(BaseModel):
+    action: str  # clock_in, clock_out
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_address: Optional[str] = None
+    device_info: Optional[str] = None
+
+class AttendanceSummaryResponse(BaseModel):
+    date: date
+    total_records: int
+    present: int
+    late: int
+    absent: int
+    class Config:
+        from_attributes = True
+
+# Enhanced Policy Schemas
 class PolicyBase(BaseModel):
     name: str
-    type: str
-    level: str
-    rules: str
+    type: str  # attendance, leave, calendar, time, leave
+    level: str  # org, branch, department, user
+    rules: Dict[str, Any]
+    is_active: bool = True
 
 class PolicyCreate(PolicyBase):
     tenant_id: uuid.UUID
@@ -255,12 +295,14 @@ class PolicyUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     level: Optional[str] = None
-    rules: Optional[str] = None
+    rules: Optional[Dict[str, Any]] = None
+    is_active: Optional[bool] = None
 
 class PolicyResponse(PolicyBase):
     id: uuid.UUID
     tenant_id: uuid.UUID
     created_at: datetime
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -269,6 +311,8 @@ class PolicyAssignmentBase(BaseModel):
     branch_id: Optional[uuid.UUID] = None
     department_id: Optional[uuid.UUID] = None
     user_id: Optional[uuid.UUID] = None
+    client_id: Optional[uuid.UUID] = None
+    project_id: Optional[uuid.UUID] = None
 
 class PolicyAssignmentCreate(PolicyAssignmentBase):
     tenant_id: uuid.UUID
@@ -280,9 +324,129 @@ class PolicyAssignmentResponse(PolicyAssignmentBase):
     class Config:
         from_attributes = True
 
+# Calendar and Holiday Schemas
+class HolidayBase(BaseModel):
+    name: str
+    date: date
+    type: str = "holiday"  # holiday, optional_holiday, company_holiday
+    description: Optional[str] = None
+    is_active: bool = True
+
+class HolidayCreate(HolidayBase):
+    pass
+
+class HolidayUpdate(BaseModel):
+    name: Optional[str] = None
+    date: Optional[date] = None
+    type: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class HolidayResponse(HolidayBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class WeekOffBase(BaseModel):
+    day_of_week: int  # 0=Monday, 6=Sunday
+    is_active: bool = True
+
+class WeekOffCreate(WeekOffBase):
+    pass
+
+class WeekOffUpdate(BaseModel):
+    day_of_week: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class WeekOffResponse(WeekOffBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+# Time Policy Schemas
+class TimePolicyRules(BaseModel):
+    working_hours: int = 8  # hours per day
+    start_time: str = "09:00"  # HH:MM format
+    end_time: str = "18:00"  # HH:MM format
+    flexible_time: bool = False
+    flexible_start_time: Optional[str] = None  # HH:MM format
+    flexible_end_time: Optional[str] = None  # HH:MM format
+    wfh_enabled: bool = False
+    hybrid_mode: bool = False
+    wfh_days: List[int] = []  # 0=Monday, 6=Sunday
+    grace_period: int = 15  # minutes
+    late_threshold: int = 30  # minutes
+    break_duration: int = 60  # minutes
+    overtime_enabled: bool = True
+    overtime_threshold: int = 8  # hours
+
+# Leave Schemas
+class LeaveTypeBase(BaseModel):
+    name: str  # Annual Leave, Sick Leave, etc.
+    description: Optional[str] = None
+    default_days: int = 0
+    is_paid: bool = True
+    requires_approval: bool = True
+    color: str = "#2196F3"
+    is_active: bool = True
+
+class LeaveTypeCreate(LeaveTypeBase):
+    pass
+
+class LeaveTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    default_days: Optional[int] = None
+    is_paid: Optional[bool] = None
+    requires_approval: Optional[bool] = None
+    color: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class LeaveTypeResponse(LeaveTypeBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class LeaveRequestBase(BaseModel):
+    user_id: uuid.UUID
+    leave_type_id: uuid.UUID
+    start_date: date
+    end_date: date
+    days_requested: float
+    reason: Optional[str] = None
+
+class LeaveRequestCreate(LeaveRequestBase):
+    pass
+
+class LeaveRequestUpdate(BaseModel):
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    days_requested: Optional[float] = None
+    reason: Optional[str] = None
+
+class LeaveRequestResponse(LeaveRequestBase):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    status: str
+    approver_id: Optional[uuid.UUID] = None
+    approved_at: Optional[datetime] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class LeaveApprovalRequest(BaseModel):
+    status: str  # approved, rejected
+    approver_id: uuid.UUID
+
 class RegularizationRequestBase(BaseModel):
     user_id: uuid.UUID
-    date: datetime
+    date: date
     reason: str
     requested_in: Optional[datetime] = None
     requested_out: Optional[datetime] = None
@@ -300,6 +464,9 @@ class RegularizationRequestResponse(RegularizationRequestBase):
     status: str
     approver_id: Optional[uuid.UUID] = None
     approved_at: Optional[datetime] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -334,7 +501,7 @@ class AuditLogResponse(BaseModel):
     details: Optional[dict] = None
     timestamp: datetime
     user: Optional[UserResponse] = None
-
+    
     class Config:
         from_attributes = True
 
@@ -352,5 +519,6 @@ class NotificationResponse(NotificationBase):
     is_read: bool
     created_at: datetime
     user: Optional[UserResponse] = None
+    
     class Config:
         from_attributes = True

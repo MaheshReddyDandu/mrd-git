@@ -93,6 +93,278 @@ class ApiService {
     }
   }
 
+  // Enhanced Attendance endpoints
+  static Future<Map<String, dynamic>> clockInOut(String action, {
+    double? latitude,
+    double? longitude,
+    String? locationAddress,
+    String? deviceInfo,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/attendance/clock-in-out'),
+      headers: _headers,
+      body: jsonEncode({
+        'action': action,
+        'latitude': latitude,
+        'longitude': longitude,
+        'location_address': locationAddress,
+        'device_info': deviceInfo,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to clock ${action}: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getMyAttendanceRecords({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final queryParams = <String, String>{};
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/attendance/my-records').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get attendance records: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getMyAttendanceLogs({String? date}) async {
+    final queryParams = <String, String>{};
+    if (date != null) queryParams['date'] = date;
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/attendance/my-logs').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get attendance logs: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCurrentSession() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/attendance/current-session'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get current session: ${response.body}');
+    }
+  }
+
+  // Policy endpoints
+  static Future<List<dynamic>> listPolicies({String? policyType}) async {
+    final queryParams = <String, String>{};
+    if (policyType != null) queryParams['policy_type'] = policyType;
+    final response = await http.get(
+      Uri.parse('$baseUrl/policies').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list policies: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createPolicy(Map<String, dynamic> policy) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/policies'),
+      headers: _headers,
+      body: jsonEncode(policy),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create policy: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updatePolicy(String policyId, Map<String, dynamic> policy) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/policies/$policyId'),
+      headers: _headers,
+      body: jsonEncode(policy),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update policy: ${response.body}');
+    }
+  }
+
+  static Future<void> deletePolicy(String policyId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/policies/$policyId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete policy: ${response.body}');
+    }
+  }
+
+  // Calendar and Holiday endpoints
+  static Future<List<dynamic>> listHolidays({int? year}) async {
+    final queryParams = <String, String>{};
+    if (year != null) queryParams['year'] = year.toString();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/holidays').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list holidays: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createHoliday(Map<String, dynamic> holiday) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/holidays'),
+      headers: _headers,
+      body: jsonEncode(holiday),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create holiday: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> listWeekOffs() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/week-offs'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list week offs: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createWeekOff(Map<String, dynamic> weekOff) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/week-offs'),
+      headers: _headers,
+      body: jsonEncode(weekOff),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create week off: ${response.body}');
+    }
+  }
+
+  // Leave Management endpoints
+  static Future<List<dynamic>> listLeaveTypes() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/leave-types'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list leave types: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createLeaveType(Map<String, dynamic> leaveType) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/leave-types'),
+      headers: _headers,
+      body: jsonEncode(leaveType),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create leave type: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> listLeaveRequests({String? status}) async {
+    final queryParams = <String, String>{};
+    if (status != null) queryParams['status'] = status;
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/leave-requests').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list leave requests: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createLeaveRequest(Map<String, dynamic> leaveRequest) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/leave-requests'),
+      headers: _headers,
+      body: jsonEncode(leaveRequest),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create leave request: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> approveLeaveRequest(String requestId, String status, String approverId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/leave-requests/$requestId/approve'),
+      headers: _headers,
+      body: jsonEncode({
+        'status': status,
+        'approver_id': approverId,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to approve leave request: ${response.body}');
+    }
+  }
+
+  // Policy Assignment endpoints
+  static Future<Map<String, dynamic>> assignPolicy(Map<String, dynamic> assignment) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/policy-assignments'),
+      headers: _headers,
+      body: jsonEncode(assignment),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to assign policy: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getUserEffectivePolicies(String userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/$userId/effective-policies'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get user effective policies: ${response.body}');
+    }
+  }
+
   // Admin endpoints
   static Future<List<dynamic>> getAllUsers() async {
     print('Making getAllUsers request to: $baseUrl/admin/users');
@@ -267,397 +539,7 @@ class ApiService {
     }
   }
 
-  // Attendance endpoints
-  static Future<List<dynamic>> listAttendance(String tenantId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/attendance'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to list attendance: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> createAttendance(String tenantId, Map<String, dynamic> attendance) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/attendance'),
-      headers: _headers,
-      body: jsonEncode(attendance),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to create attendance: ${response.body}');
-    }
-  }
-
-  // Policy endpoints
-  static Future<List<dynamic>> listPolicies(String tenantId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/policies'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to list policies: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> createPolicy(String tenantId, Map<String, dynamic> policy) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/policies'),
-      headers: _headers,
-      body: jsonEncode(policy),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to create policy: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> assignPolicy(String tenantId, Map<String, dynamic> assignment) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/policy-assignments'),
-      headers: _headers,
-      body: jsonEncode(assignment),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to assign policy: ${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> getEffectivePolicy(String tenantId, String userId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/users/$userId/effective-policy'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to get effective policy: ${response.body}');
-    }
-  }
-
-  // Regularization endpoints
-  static Future<Map<String, dynamic>> submitRegularizationRequest(String tenantId, Map<String, dynamic> req) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/regularization-requests'),
-      headers: _headers,
-      body: jsonEncode(req),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to submit regularization request: ${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> listRegularizationRequests(String tenantId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/regularization-requests'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to list regularization requests: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> approveRegularizationRequest(String tenantId, String requestId, Map<String, dynamic> approval) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/tenants/$tenantId/regularization-requests/$requestId/approve'),
-      headers: _headers,
-      body: jsonEncode(approval),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to approve regularization request: ${response.body}');
-    }
-  }
-
-  // Analytics endpoints
-  static Future<List<dynamic>> getAttendanceSummary(String tenantId, {String period = 'daily'}) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/attendance-summary?period=$period'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to get attendance summary: ${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> getDepartmentAttendanceSummary(String tenantId, String departmentId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/departments/$departmentId/attendance-summary'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to get department attendance summary: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> getDashboardStats(String tenantId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/tenants/$tenantId/dashboard-stats'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to get dashboard stats: ${response.body}');
-    }
-  }
-
-  // SaaS Admin endpoints
-  static Future<List<dynamic>> adminListTenants() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/admin/tenants'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to list tenants: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> adminAssignPlan(String tenantId, String plan) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/admin/tenants/$tenantId/assign-plan'),
-      headers: _headers,
-      body: jsonEncode({'plan': plan}),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to assign plan: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> adminTenantUsage(String tenantId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/admin/tenants/$tenantId/usage'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to get tenant usage: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> forgotPassword(String email) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/forgot-password'),
-      headers: _headers,
-      body: jsonEncode({
-        'email': email,
-      }),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to request password reset: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> resetPassword(String token, String newPassword) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/reset-password'),
-      headers: _headers,
-      body: jsonEncode({
-        'token': token,
-        'new_password': newPassword,
-      }),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to reset password: ${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> changePassword(String oldPassword, String newPassword) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/change-password'),
-      headers: _headers,
-      body: jsonEncode({
-        'old_password': oldPassword,
-        'new_password': newPassword,
-      }),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to change password: ${response.body}');
-    }
-  }
-
-  // SaaS onboarding: signup client (first tenant+owner)
-  static Future<Map<String, dynamic>> signupClient({
-    required String tenantName,
-    required String tenantContactEmail,
-    required String ownerEmail,
-    required String ownerUsername,
-    required String ownerPassword,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/signup-client'),
-      headers: _headers,
-      body: jsonEncode({
-        'tenant_name': tenantName,
-        'tenant_contact_email': tenantContactEmail,
-        'owner_email': ownerEmail,
-        'owner_username': ownerUsername,
-        'owner_password': ownerPassword,
-      }),
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['access_token'] != null) _token = data['access_token'];
-      return data;
-    } else {
-      throw Exception('Failed to signup client: ${response.body}');
-    }
-  }
-
-  // Admin: add user (invite)
-  static Future<Map<String, dynamic>> adminAddUser({
-    required String email,
-    required String username,
-    required String roleId,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/admin/add-user'),
-      headers: _headers,
-      body: jsonEncode({
-        'email': email,
-        'username': username,
-        'role_id': roleId,
-      }),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to add user: ${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> getRoles() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/roles'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to fetch roles: ${response.body}');
-    }
-  }
-
-  static Future<void> adminAssignRole(String userId, String roleId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/admin/assign-role'),
-      headers: _headers,
-      body: jsonEncode({'user_id': userId, 'role_id': roleId}),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Failed to assign role: ${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> getAuditLogs({int skip = 0, int limit = 100}) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/admin/audit-logs?skip=$skip&limit=$limit'),
-      headers: _headers,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to fetch audit logs: ${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> getAttendanceReport(String tenantId, {
-    String? startDate,
-    String? endDate,
-    String? departmentId,
-    String? employeeId,
-    String? status,
-  }) async {
-    final params = <String, String>{};
-    if (startDate != null) params['start_date'] = startDate;
-    if (endDate != null) params['end_date'] = endDate;
-    if (departmentId != null) params['department_id'] = departmentId;
-    if (employeeId != null) params['employee_id'] = employeeId;
-    if (status != null) params['status'] = status;
-    final uri = Uri.parse('$baseUrl/tenants/$tenantId/attendance-report').replace(queryParameters: params);
-    final response = await http.get(uri, headers: _headers);
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to fetch attendance report: \\${response.body}');
-    }
-  }
-
-  static Future<List<dynamic>> listNotifications(String tenantId, {bool onlyUnread = false}) async {
-    final params = <String, String>{};
-    if (onlyUnread) params['only_unread'] = 'true';
-    final uri = Uri.parse('$baseUrl/tenants/$tenantId/notifications').replace(queryParameters: params);
-    final response = await http.get(uri, headers: _headers);
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to fetch notifications: \\${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> markNotificationRead(String tenantId, String notificationId) async {
-    final uri = Uri.parse('$baseUrl/tenants/$tenantId/notifications/$notificationId/read');
-    final response = await http.post(uri, headers: _headers);
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to mark notification as read: \\${response.body}');
-    }
-  }
-
-  static Future<Map<String, dynamic>> adminUpdateTenant(String tenantId, Map<String, dynamic> tenantData) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/admin/tenants/$tenantId'),
-      headers: _headers,
-      body: jsonEncode(tenantData),
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to update tenant: ${response.body}');
-    }
-  }
-
-  static Future<void> adminDeleteTenant(String tenantId) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/admin/tenants/$tenantId'),
-      headers: _headers,
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Failed to delete tenant: ${response.body}');
-    }
-  }
-
-  // Client CRUD endpoints
+  // Client endpoints
   static Future<List<dynamic>> listClients() async {
     final response = await http.get(
       Uri.parse('$baseUrl/clients'),
@@ -706,7 +588,7 @@ class ApiService {
     }
   }
 
-  // Project CRUD endpoints
+  // Project endpoints
   static Future<List<dynamic>> listProjects() async {
     final response = await http.get(
       Uri.parse('$baseUrl/projects'),
@@ -754,4 +636,384 @@ class ApiService {
       throw Exception('Failed to delete project: ${response.body}');
     }
   }
+
+  // Legacy attendance endpoints (for backward compatibility)
+  static Future<List<dynamic>> listAttendance(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/attendance'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list attendance: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createAttendance(String tenantId, Map<String, dynamic> attendance) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tenants/$tenantId/attendance'),
+      headers: _headers,
+      body: jsonEncode(attendance),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create attendance: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getAttendanceSummary(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/attendance-summary'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get attendance summary: ${response.body}');
+    }
+  }
+
+  // Role endpoints
+  static Future<List<dynamic>> listRoles() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/roles'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list roles: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> createRole(Map<String, dynamic> role) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/roles'),
+      headers: _headers,
+      body: jsonEncode(role),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create role: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateRole(String roleId, Map<String, dynamic> role) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/roles/$roleId'),
+      headers: _headers,
+      body: jsonEncode(role),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update role: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteRole(String roleId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/roles/$roleId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete role: ${response.body}');
+    }
+  }
+
+  // User management endpoints
+  static Future<List<dynamic>> getUsers() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get users: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateUser(String userId, Map<String, dynamic> user) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/$userId'),
+      headers: _headers,
+      body: jsonEncode(user),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update user: ${response.body}');
+    }
+  }
+
+  static Future<void> deleteUser(String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/users/$userId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete user: ${response.body}');
+    }
+  }
+
+  // Admin user management
+  static Future<Map<String, dynamic>> addUserByAdmin(Map<String, dynamic> userData) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/add-user'),
+      headers: _headers,
+      body: jsonEncode(userData),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to add user: ${response.body}');
+    }
+  }
+
+  // Password management
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: _headers,
+      body: jsonEncode({'email': email}),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to process forgot password: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> resetPassword(String token, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: _headers,
+      body: jsonEncode({
+        'token': token,
+        'new_password': newPassword,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to reset password: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> changePassword(String oldPassword, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/change-password'),
+      headers: _headers,
+      body: jsonEncode({
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to change password: ${response.body}');
+    }
+  }
+
+  // Client signup
+  static Future<Map<String, dynamic>> signupClient(Map<String, dynamic> signupData) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/signup-client'),
+      headers: _headers,
+      body: jsonEncode(signupData),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      _token = data['access_token'];
+      return data;
+    } else {
+      throw Exception('Failed to signup client: ${response.body}');
+    }
+  }
+
+  // Admin endpoints
+  static Future<List<dynamic>> getRoles() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/roles'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get roles: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> adminListTenants() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/tenants'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list tenants: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminUpdateTenant(String tenantId, Map<String, dynamic> tenant) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/admin/tenants/$tenantId'),
+      headers: _headers,
+      body: jsonEncode(tenant),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update tenant: ${response.body}');
+    }
+  }
+
+  static Future<void> adminDeleteTenant(String tenantId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/tenants/$tenantId'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete tenant: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminTenantUsage(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/tenants/$tenantId/usage'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get tenant usage: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminAssignPlan(String tenantId, String plan) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/tenants/$tenantId/assign-plan'),
+      headers: _headers,
+      body: jsonEncode({'plan': plan}),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to assign plan: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminAddUser(Map<String, dynamic> userData) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/add-user'),
+      headers: _headers,
+      body: jsonEncode(userData),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to add user: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> adminAssignRole(String userId, String roleId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/assign-role'),
+      headers: _headers,
+      body: jsonEncode({
+        'user_id': userId,
+        'role_id': roleId,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to assign role: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getAuditLogs() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/audit-logs'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get audit logs: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> getAttendanceReport(String tenantId, {String? startDate, String? endDate}) async {
+    final queryParams = <String, String>{};
+    if (startDate != null) queryParams['start_date'] = startDate;
+    if (endDate != null) queryParams['end_date'] = endDate;
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/attendance-summary').replace(queryParameters: queryParams),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get attendance report: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> listRegularizationRequests(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/regularization-requests'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to list regularization requests: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> submitRegularizationRequest(String tenantId, Map<String, dynamic> request) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tenants/$tenantId/regularization-requests'),
+      headers: _headers,
+      body: jsonEncode(request),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to submit regularization request: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> approveRegularizationRequest(String tenantId, String requestId, Map<String, dynamic> approval) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/tenants/$tenantId/regularization-requests/$requestId/approve'),
+      headers: _headers,
+      body: jsonEncode(approval),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to approve regularization request: ${response.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getDashboardStats(String tenantId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tenants/$tenantId/dashboard-stats'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get dashboard stats: ${response.body}');
+    }
+  }
 } 
+

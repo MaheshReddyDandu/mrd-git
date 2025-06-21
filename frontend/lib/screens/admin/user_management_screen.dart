@@ -124,11 +124,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
                   try {
-                    await ApiService.adminAddUser(
-                      email: _emailController.text,
-                      username: _usernameController.text,
-                      roleId: _selectedRoleId!,
-                    );
+                    await ApiService.adminAddUser({
+                      'email': _emailController.text,
+                      'username': _usernameController.text,
+                      'role_id': _selectedRoleId!,
+                    });
                     _refreshUsers();
                     Navigator.of(context).pop();
                   } catch (e) {

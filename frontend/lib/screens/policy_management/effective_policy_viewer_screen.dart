@@ -46,10 +46,7 @@ class _EffectivePolicyViewerScreenState extends State<EffectivePolicyViewerScree
       _effectivePolicies = null;
     });
     try {
-      final policies = await ApiService.getEffectivePolicy(
-        _userData!['tenant_id'],
-        _selectedUserId!,
-      );
+      final policies = await ApiService.getUserEffectivePolicies(_selectedUserId!);
       setState(() {
         _effectivePolicies = policies;
         _isLoadingPolicies = false;
