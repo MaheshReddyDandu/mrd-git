@@ -201,17 +201,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       
       // Get location address (reverse geocoding)
       String? locationAddress;
-      try {
-        final placemarks = await geocoding.placemarkFromCoordinates(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-        );
-        if (placemarks.isNotEmpty) {
-          final placemark = placemarks.first;
-          locationAddress = '${placemark.street}, ${placemark.locality}, ${placemark.country}';
+      if (kIsWeb) {
+        print('Reverse geocoding is not supported on web. Skipping address lookup.');
+      } else {
+        try {
+          final placemarks = await geocoding.placemarkFromCoordinates(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+          );
+          if (placemarks.isNotEmpty) {
+            final placemark = placemarks.first;
+            locationAddress = '${placemark.street}, ${placemark.locality}, ${placemark.country}';
+          }
+        } catch (e) {
+          // Continue without address if reverse geocoding fails
+          print('Error getting address: $e');
         }
-      } catch (e) {
-        // Continue without address if reverse geocoding fails
       }
 
       await ApiService.clockInOut(
@@ -682,7 +687,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     Text(
-                      TimeFormatService.formatDateTime(DateTime.parse(_currentSession!['clock_in'])),
+                      TimeFormatService.formatDateTime(DateTime.parse(_currentSession!['clock_in']).toLocal()),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -1167,7 +1172,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildLogItem(Map<String, dynamic> log) {
-    final timestamp = DateTime.parse(log['timestamp']);
+    final timestamp = DateTime.parse(log['timestamp']).toLocal();
     final action = log['action'];
     final hasLocation = log['latitude'] != null && log['longitude'] != null;
     
@@ -1179,7 +1184,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildSimpleLogItem(Map<String, dynamic> log) {
-    final timestamp = DateTime.parse(log['timestamp']);
+    final timestamp = DateTime.parse(log['timestamp']).toLocal();
     final action = log['action'];
     final hasLocation = log['latitude'] != null && log['longitude'] != null;
     
@@ -1245,7 +1250,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Widget _buildDetailedLogItem(Map<String, dynamic> log) {
-    final timestamp = DateTime.parse(log['timestamp']);
+    final timestamp = DateTime.parse(log['timestamp']).toLocal();
     final action = log['action'];
     final hasLocation = log['latitude'] != null && log['longitude'] != null;
     
