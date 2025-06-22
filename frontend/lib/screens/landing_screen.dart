@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'landing/animated_background_widget.dart';
 import 'landing/top_nav_bar_widget.dart';
 import 'landing/hero_section_widget.dart';
@@ -15,95 +16,181 @@ class LandingScreen extends StatefulWidget {
   State<LandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends State<LandingScreen> with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  final GlobalKey _featuresKey = GlobalKey();
+class _LandingScreenState extends State<LandingScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _showMobileMenu = false;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
+    // Set system UI overlay style
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
     );
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
-    
-    _fadeController.forward();
-    _slideController.forward();
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _scrollToFeatures() {
-    final RenderBox renderBox = _featuresKey.currentContext!.findRenderObject() as RenderBox;
-    final position = renderBox.localToGlobal(Offset.zero);
-    Scrollable.ensureVisible(
-      _featuresKey.currentContext!,
-      duration: const Duration(milliseconds: 1000),
-      curve: Curves.easeInOut,
-    );
+  void _scrollToSection(String section) {
+    // Scroll to specific section
+    switch (section) {
+      case 'features':
+        _scrollController.animateTo(
+          800,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+        break;
+      case 'testimonials':
+        _scrollController.animateTo(
+          1200,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+        break;
+      case 'contact':
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+        break;
+    }
+    setState(() {
+      _showMobileMenu = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade900,
-              Colors.purple.shade900,
-              Colors.indigo.shade800,
-            ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Animated background particles
-            const AnimatedBackgroundWidget(),
-            // Main content
-            SingleChildScrollView(
-              child: Column(
-                children: [
-                  const TopNavBarWidget(),
-                  HeroSectionWidget(onLearnMore: _scrollToFeatures),
-                  const SizedBox(height: 80),
-                  const StatisticsSectionWidget(),
-                  const SizedBox(height: 80),
-                  FeatureCarouselWidget(key: _featuresKey),
-                  const SizedBox(height: 80),
-                  const TestimonialsSectionWidget(),
-                  const SizedBox(height: 80),
-                  const FooterSectionWidget(),
-                  const SizedBox(height: 50),
+      body: Stack(
+        children: [
+          // Light sky blue background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFB3E5FC), // Light sky blue
+                  Color(0xFFE1F5FE), // Lighter blue
                 ],
               ),
             ),
-          ],
+          ),
+          // Animated background
+          const AnimatedBackgroundWidget(),
+          
+          // Main content
+          SingleChildScrollView(
+            controller: _scrollController,
+            child: Column(
+              children: [
+                // Top navigation bar
+                TopNavBarWidget(
+                  isMenuOpen: _showMobileMenu,
+                  onMenuToggle: () {
+                    setState(() {
+                      _showMobileMenu = !_showMobileMenu;
+                    });
+                  },
+                ),
+                
+                // Hero section
+                HeroSectionWidget(
+                  onLearnMore: () => _scrollToSection('features'),
+                ),
+                
+                // Statistics section
+                const StatisticsSectionWidget(),
+                
+                // Feature carousel
+                const FeatureCarouselWidget(),
+                
+                // Testimonials section
+                const TestimonialsSectionWidget(),
+                
+                // Footer section
+                const FooterSectionWidget(),
+              ],
+            ),
+          ),
+          
+          // Mobile menu overlay
+          if (_showMobileMenu && isMobile)
+            Container(
+              color: Colors.black.withOpacity(0.8),
+              child: Column(
+                children: [
+                  SizedBox(height: MediaQuery.of(context).padding.top + 80),
+                  _MobileMenuItem(
+                    'Features',
+                    Icons.featured_play_list,
+                    () => _scrollToSection('features'),
+                  ),
+                  _MobileMenuItem(
+                    'Testimonials',
+                    Icons.rate_review,
+                    () => _scrollToSection('testimonials'),
+                  ),
+                  _MobileMenuItem(
+                    'Contact',
+                    Icons.contact_support,
+                    () => _scrollToSection('contact'),
+                  ),
+                  const Divider(color: Colors.white24, height: 32),
+                  _MobileMenuItem(
+                    'Login',
+                    Icons.login,
+                    () {
+                      setState(() {
+                        _showMobileMenu = false;
+                      });
+                      Navigator.pushNamed(context, '/login');
+                    },
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileMenuItem extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _MobileMenuItem(this.title, this.icon, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white, size: 24),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
         ),
       ),
+      onTap: onTap,
     );
   }
 } 

@@ -7,60 +7,83 @@ class HeroSectionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+    final isTablet = screenWidth >= 768 && screenWidth < 1024;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 80),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 24 : 48,
+        vertical: isMobile ? 60 : 80,
+      ),
       child: Column(
         children: [
-          const Text(
+          Text(
             'Modern Workforce Management, Simplified',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 52,
+              fontSize: isMobile ? 32 : (isTablet ? 42 : 52),
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Colors.black87,
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: isMobile ? 16 : 24),
+          Text(
             'The all-in-one platform for attendance, policy management, and smart workforce analytics. Elevate your team\'s productivity and streamline your HR operations effortlessly.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 18,
-              color: Colors.white70,
+              fontSize: isMobile ? 16 : 18,
+              color: Colors.black54,
             ),
           ),
-          const SizedBox(height: 40),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          SizedBox(height: isMobile ? 32 : 40),
+          Wrap(
+            spacing: isMobile ? 16 : 20,
+            runSpacing: isMobile ? 16 : 20,
+            alignment: WrapAlignment.center,
             children: [
               ElevatedButton(
                 onPressed: () {
                   Navigator.pushNamed(context, '/login');
                 },
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.blue.shade800,
-                  backgroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.blue.shade700,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 32 : 40,
+                    vertical: isMobile ? 16 : 20,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                   elevation: 8,
                 ),
-                child: const Text('Get Started Free', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Get Started Free',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              const SizedBox(width: 20),
               OutlinedButton(
                 onPressed: onLearnMore,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white),
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  foregroundColor: Colors.blue.shade700,
+                  side: BorderSide(color: Colors.blue.shade700),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 32 : 40,
+                    vertical: isMobile ? 16 : 20,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: const Text('Learn More', style: TextStyle(fontSize: 16)),
+                child: Text(
+                  'Learn More',
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                ),
               ),
             ],
           ),

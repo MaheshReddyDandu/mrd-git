@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-class TopNavBarWidget extends StatefulWidget {
-  const TopNavBarWidget({super.key});
+class TopNavBarWidget extends StatelessWidget {
+  final bool isMenuOpen;
+  final VoidCallback onMenuToggle;
 
-  @override
-  State<TopNavBarWidget> createState() => _TopNavBarWidgetState();
-}
+  const TopNavBarWidget({
+    super.key,
+    required this.isMenuOpen,
+    required this.onMenuToggle,
+  });
 
-class _TopNavBarWidgetState extends State<TopNavBarWidget> {
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 24 : 48,
+        vertical: isMobile ? 16 : 24,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -26,24 +34,36 @@ class _TopNavBarWidgetState extends State<TopNavBarWidget> {
               },
               child: SvgPicture.asset(
                 'assets/images/company_logo.svg',
-                height: 50,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                height: isMobile ? 40 : 50,
+                colorFilter: const ColorFilter.mode(Colors.black87, BlendMode.srcIn),
               ),
             ),
           ),
-          Row(
-            children: [
-              _NavBarItem('Login', Icons.login),
-              _NavBarItem('Pricing', Icons.attach_money),
-              _NavBarItem('Contact', Icons.contact_support),
-            ],
-          ),
+          if (isMobile)
+            // Mobile hamburger menu
+            IconButton(
+              onPressed: onMenuToggle,
+              icon: Icon(
+                isMenuOpen ? Icons.close : Icons.menu,
+                color: Colors.black87,
+                size: 28,
+              ),
+            )
+          else
+            // Desktop navigation items
+            Row(
+              children: [
+                _NavBarItem('Login', Icons.login, context),
+                _NavBarItem('Pricing', Icons.attach_money, context),
+                _NavBarItem('Contact', Icons.contact_support, context),
+              ],
+            ),
         ],
       ),
     );
   }
 
-  Widget _NavBarItem(String title, IconData icon) {
+  Widget _NavBarItem(String title, IconData icon, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: MouseRegion(
@@ -55,10 +75,10 @@ class _TopNavBarWidgetState extends State<TopNavBarWidget> {
                 Navigator.pushNamed(context, '/login');
                 break;
               case 'Pricing':
-                _showPricingDialog();
+                _showPricingDialog(context);
                 break;
               case 'Contact':
-                _showContactDialog();
+                _showContactDialog(context);
                 break;
             }
           },
@@ -71,11 +91,11 @@ class _TopNavBarWidgetState extends State<TopNavBarWidget> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: Colors.white, size: 16),
+                Icon(icon, color: Colors.black87, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: const TextStyle(color: Colors.black87, fontSize: 16),
                 ),
               ],
             ),
@@ -85,7 +105,7 @@ class _TopNavBarWidgetState extends State<TopNavBarWidget> {
     );
   }
 
-  void _showPricingDialog() {
+  void _showPricingDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -108,7 +128,7 @@ class _TopNavBarWidgetState extends State<TopNavBarWidget> {
     );
   }
 
-  void _showContactDialog() {
+  void _showContactDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

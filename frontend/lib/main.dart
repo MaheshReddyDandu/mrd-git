@@ -7,6 +7,7 @@ import 'screens/attendance_screen.dart';
 import 'screens/policy_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
+import 'services/base_api_service.dart';
 import 'services/time_format_service.dart';
 import 'screens/landing_screen.dart';
 
@@ -14,7 +15,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize services
-  await ApiService.initialize();
+  await BaseApiService.initialize();
   await TimeFormatService.initialize();
   
   runApp(const MyApp());
@@ -35,80 +36,106 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       onGenerateRoute: (settings) {
-        // Prevent going back to login if user is already authenticated
-        if (settings.name == '/login' && ApiService.isAuthenticated()) {
-          return MaterialPageRoute(builder: (context) => const HomeScreen());
-        }
-        
-        switch (settings.name) {
-          case '/':
-            return MaterialPageRoute(builder: (context) => const LandingScreen());
-          case '/login':
-            return MaterialPageRoute(builder: (context) => const LoginScreen());
-          case '/register':
-            return MaterialPageRoute(builder: (context) => const RegisterScreen());
-          case '/forgot-password':
-            return MaterialPageRoute(builder: (context) => const ForgotPasswordScreen());
-          case '/home':
-            return MaterialPageRoute(builder: (context) => const HomeScreen());
-          case '/attendance':
-            return MaterialPageRoute(builder: (context) => const AttendanceScreen());
-          case '/policy':
-            return MaterialPageRoute(builder: (context) => const PolicyScreen());
-          case '/settings':
-            return MaterialPageRoute(builder: (context) => const SettingsScreen());
-          default:
-            return MaterialPageRoute(builder: (context) => const LandingScreen());
-        }
+        return MaterialPageRoute(
+          builder: (context) {
+            // Public routes accessible to everyone
+            switch (settings.name) {
+              case '/':
+                return const LandingScreen();
+              case '/login':
+                return const LoginScreen();
+              case '/register':
+                return const RegisterScreen();
+              case '/forgot-password':
+                return const ForgotPasswordScreen();
+            }
+
+            // Protected routes that require authentication
+            return AuthGuard(
+              child: Builder(
+                builder: (context) {
+                  switch (settings.name) {
+                    case '/home':
+                      return const HomeScreen();
+                    case '/attendance':
+                      return const AttendanceScreen();
+                    case '/policy':
+                      return const PolicyScreen();
+                    case '/settings':
+                      return const SettingsScreen();
+                    default:
+                      // If route is unknown and protected, redirect to landing
+                      return const LandingScreen();
+                  }
+                },
+              ),
+            );
+          },
+        );
       },
     );
   }
 }
 
-class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({super.key});
+class AuthGuard extends StatefulWidget {
+  final Widget child;
+  const AuthGuard({super.key, required this.child});
 
   @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
+  State<AuthGuard> createState() => _AuthGuardState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isLoading = true;
-  bool _isLoggedIn = false;
+class _AuthGuardState extends State<AuthGuard> {
+  bool? _isAuthorized;
 
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+    _checkAuth();
   }
 
-  Future<void> _checkAuthStatus() async {
+  Future<void> _checkAuth() async {
+    // Check token existence first for a quick check
+    if (!BaseApiService.isAuthenticated()) {
+      setState(() {
+        _isAuthorized = false;
+      });
+      return;
+    }
+
+    // Then, verify token validity with the server
     try {
-      // Try to get current user to check if token is valid
       await ApiService.getCurrentUser();
       setState(() {
-        _isLoggedIn = true;
-        _isLoading = false;
+        _isAuthorized = true;
       });
     } catch (e) {
       // Token is invalid or expired
+      await BaseApiService.clearToken();
       setState(() {
-        _isLoggedIn = false;
-        _isLoading = false;
+        _isAuthorized = false;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+    if (_isAuthorized == null) {
+      // Loading screen while checking auth
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return _isLoggedIn ? const HomeScreen() : const LoginScreen();
+    if (_isAuthorized == false) {
+      // Not authorized, redirect to login
+      // We use a post-frame callback to avoid build-time navigation errors
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      });
+      // Show a loading indicator while redirecting
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Authorized, show the intended screen
+    return widget.child;
   }
 }

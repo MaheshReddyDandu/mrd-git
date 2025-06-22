@@ -82,71 +82,82 @@ class _FeatureCarouselWidgetState extends State<FeatureCarouselWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const Text(
-          'Powerful Features',
-          style: TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+    final isTablet = screenWidth >= 768 && screenWidth < 1024;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 24 : 48),
+      child: Column(
+        children: [
+          Text(
+            'Powerful Features',
+            style: TextStyle(
+              fontSize: isMobile ? 28 : (isTablet ? 32 : 36),
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Everything you need to manage your workforce effectively',
-          style: TextStyle(
-            fontSize: 18,
-            color: Colors.white70,
+          SizedBox(height: isMobile ? 12 : 16),
+          Text(
+            'Everything you need to manage your workforce effectively',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isMobile ? 16 : 18,
+              color: Colors.black54,
+            ),
           ),
-        ),
-        const SizedBox(height: 50),
-        SizedBox(
-          height: 280,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: features.length,
-            itemBuilder: (context, index) {
-              double scale = 1.0;
-              if (_pageController.position.haveDimensions) {
-                double page = _pageController.page ?? 0;
-                scale = (1 - ((page - index).abs() * 0.3)).clamp(0.8, 1.0);
-              }
-              return Transform.scale(
-                scale: scale,
-                child: FeatureCardWidget(
-                  title: features[index]['title'],
-                  quote: features[index]['quote'],
-                  color: features[index]['color'],
-                  icon: features[index]['icon'],
-                ),
-              );
-            },
+          SizedBox(height: isMobile ? 40 : 50),
+          SizedBox(
+            height: isMobile ? 320 : 280,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: features.length,
+              itemBuilder: (context, index) {
+                double scale = 1.0;
+                if (_pageController.position.haveDimensions) {
+                  double page = _pageController.page ?? 0;
+                  scale = (1 - ((page - index).abs() * 0.3)).clamp(0.8, 1.0);
+                }
+                return Transform.scale(
+                  scale: scale,
+                  child: FeatureCard(
+                    title: features[index]['title'],
+                    quote: features[index]['quote'],
+                    color: features[index]['color'],
+                    icon: features[index]['icon'],
+                    isMobile: isMobile,
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class FeatureCardWidget extends StatelessWidget {
+class FeatureCard extends StatelessWidget {
   final String title;
   final String quote;
   final Color color;
   final IconData icon;
+  final bool isMobile;
 
-  const FeatureCardWidget({
+  const FeatureCard({
     super.key,
     required this.title,
     required this.quote,
     required this.color,
     required this.icon,
+    required this.isMobile,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
@@ -157,31 +168,37 @@ class FeatureCardWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: Colors.white, size: 32),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            padding: EdgeInsets.all(isMobile ? 20 : 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.black54,
+                    size: isMobile ? 28 : 32,
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '"$quote"',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.white70,
-                    fontStyle: FontStyle.italic,
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: isMobile ? 20 : 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(height: isMobile ? 12 : 16),
+                  Text(
+                    '"$quote"',
+                    style: TextStyle(
+                      fontSize: isMobile ? 14 : 16,
+                      color: Colors.black54,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

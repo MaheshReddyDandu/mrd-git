@@ -4,33 +4,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'base_api_service.dart';
 
 class AuthService extends BaseApiService {
+  static const String baseUrl = BaseApiService.baseUrl;
+  static const String loginEndpoint = BaseApiService.loginEndpoint;
+  static const String registerEndpoint = BaseApiService.registerEndpoint;
+
   // Auth endpoints
   static Future<List<dynamic>> fetchTenants() async {
-    print('Fetching tenants from: $baseUrl/admin/tenants');
-    final response = await http.get(
-      Uri.parse('$baseUrl/admin/tenants'),
-      headers: headers,
-    );
-    print('FetchTenants response status: ${response.statusCode}');
-    print('FetchTenants response body: ${response.body}');
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to fetch tenants: ${response.body}');
+    try {
+      final response = await http.get(
+        Uri.parse('${BaseApiService.baseUrlValue}/tenants'),
+        headers: BaseApiService.requestHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to fetch tenants');
+      }
+    } catch (e) {
+      throw Exception('Error fetching tenants: $e');
     }
   }
 
-  static Future<Map<String, dynamic>> login({
-    required String email,
-    required String password,
-    required String tenantId,
-  }) async {
+  static Future<Map<String, dynamic>> login(String email, String password, String tenantId) async {
+    print('Attempting login for email: $email');
     try {
-      print('Attempting login for user: $email');
       final response = await http.post(
         Uri.parse('${BaseApiService.baseUrlValue}/auth/login'),
         headers: BaseApiService.requestHeaders,
-        body: jsonEncode({
+        body: json.encode({
           'email': email,
           'password': password,
           'tenant_id': tenantId,
@@ -41,14 +43,26 @@ class AuthService extends BaseApiService {
       print('Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = json.decode(response.body);
         await BaseApiService.setToken(data['access_token']);
-        return data;
+        return {
+          'success': true,
+          'data': data,
+          'message': 'Login successful',
+        };
       } else {
-        throw Exception('Login failed: ${response.body}');
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['detail'] ?? 'Login failed',
+        };
       }
     } catch (e) {
-      throw Exception('Login error: $e');
+      print('Login error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 
@@ -57,32 +71,47 @@ class AuthService extends BaseApiService {
     required String password,
     required String username,
     required String tenantId,
-    String? firstName,
-    String? lastName,
+    required String companyName,
+    required String firstName,
+    required String lastName,
+    required String phone,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('${BaseApiService.baseUrlValue}/auth/register'),
         headers: BaseApiService.requestHeaders,
-        body: jsonEncode({
+        body: json.encode({
           'email': email,
           'password': password,
           'username': username,
           'tenant_id': tenantId,
+          'company_name': companyName,
           'first_name': firstName,
           'last_name': lastName,
+          'phone': phone,
         }),
       );
 
       if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
+        final data = json.decode(response.body);
         await BaseApiService.setToken(data['access_token']);
-        return data;
+        return {
+          'success': true,
+          'data': data,
+          'message': 'Registration successful',
+        };
       } else {
-        throw Exception('Registration failed: ${response.body}');
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['detail'] ?? 'Registration failed',
+        };
       }
     } catch (e) {
-      throw Exception('Registration error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 
@@ -135,27 +164,34 @@ class AuthService extends BaseApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> forgotPassword({
-    required String email,
-    required String tenantId,
-  }) async {
+  static Future<Map<String, dynamic>> forgotPassword(String email, String tenantId) async {
     try {
       final response = await http.post(
         Uri.parse('${BaseApiService.baseUrlValue}/auth/forgot-password'),
         headers: BaseApiService.requestHeaders,
-        body: jsonEncode({
+        body: json.encode({
           'email': email,
           'tenant_id': tenantId,
         }),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': 'Password reset email sent',
+        };
       } else {
-        throw Exception('Forgot password failed: ${response.body}');
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['detail'] ?? 'Failed to send reset email',
+        };
       }
     } catch (e) {
-      throw Exception('Forgot password error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 
@@ -167,43 +203,94 @@ class AuthService extends BaseApiService {
       final response = await http.post(
         Uri.parse('${BaseApiService.baseUrlValue}/auth/reset-password'),
         headers: BaseApiService.requestHeaders,
-        body: jsonEncode({
+        body: json.encode({
           'token': token,
           'new_password': newPassword,
         }),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': 'Password reset successful',
+        };
       } else {
-        throw Exception('Password reset failed: ${response.body}');
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['detail'] ?? 'Password reset failed',
+        };
       }
     } catch (e) {
-      throw Exception('Password reset error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 
   static Future<Map<String, dynamic>> changePassword({
     required String currentPassword,
     required String newPassword,
+    required String token,
   }) async {
     try {
       final response = await http.post(
         Uri.parse('${BaseApiService.baseUrlValue}/auth/change-password'),
-        headers: BaseApiService.requestHeaders,
-        body: jsonEncode({
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
           'current_password': currentPassword,
           'new_password': newPassword,
         }),
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': 'Password changed successfully',
+        };
       } else {
-        throw Exception('Password change failed: ${response.body}');
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'message': errorData['detail'] ?? 'Password change failed',
+        };
       }
     } catch (e) {
-      throw Exception('Password change error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> getTenants() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${BaseApiService.baseUrlValue}/tenants'),
+        headers: BaseApiService.requestHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'data': data,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to fetch tenants',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 } 
