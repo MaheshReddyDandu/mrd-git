@@ -38,6 +38,10 @@ class ApiService {
     print('Token removed from storage');
   }
 
+  static bool isAuthenticated() {
+    return _token != null;
+  }
+
   static Map<String, String> get _headers {
     final headers = {
       'Content-Type': 'application/json',

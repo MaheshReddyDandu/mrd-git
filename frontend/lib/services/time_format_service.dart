@@ -34,6 +34,11 @@ class TimeFormatService {
     await prefs.setString(_timeFormatKey, format);
   }
   
+  // Set 24-hour format (for direct boolean toggle)
+  static void set24HourFormat(bool is24Hour) {
+    _currentFormat = is24Hour ? _24Hour : _12Hour;
+  }
+  
   // Toggle between 12-hour and 24-hour format
   static Future<void> toggleTimeFormat() async {
     final newFormat = _currentFormat == _24Hour ? _12Hour : _24Hour;
@@ -47,6 +52,11 @@ class TimeFormatService {
     } else {
       return DateFormat('hh:mm:ss a').format(time);
     }
+  }
+  
+  // Format time in 24-hour format (regardless of preference)
+  static String formatTime24Hour(DateTime time) {
+    return DateFormat('HH:mm:ss').format(time);
   }
   
   // Format time without seconds

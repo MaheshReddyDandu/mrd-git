@@ -27,20 +27,39 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Auth App',
+      title: 'Workforce Management App',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        fontFamily: 'Roboto',
       ),
-      home: const LandingScreen(),
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/register': (context) => const RegisterScreen(),
-        '/forgot_password': (context) => const ForgotPasswordScreen(),
-        '/attendance':(context) => const AttendanceScreen(),
-        '/policy':(context) => const PolicyScreen(),
-        '/settings':(context) => const SettingsScreen(),
+      initialRoute: '/',
+      onGenerateRoute: (settings) {
+        // Prevent going back to login if user is already authenticated
+        if (settings.name == '/login' && ApiService.isAuthenticated()) {
+          return MaterialPageRoute(builder: (context) => const HomeScreen());
+        }
+        
+        switch (settings.name) {
+          case '/':
+            return MaterialPageRoute(builder: (context) => const LandingScreen());
+          case '/login':
+            return MaterialPageRoute(builder: (context) => const LoginScreen());
+          case '/register':
+            return MaterialPageRoute(builder: (context) => const RegisterScreen());
+          case '/forgot-password':
+            return MaterialPageRoute(builder: (context) => const ForgotPasswordScreen());
+          case '/home':
+            return MaterialPageRoute(builder: (context) => const HomeScreen());
+          case '/attendance':
+            return MaterialPageRoute(builder: (context) => const AttendanceScreen());
+          case '/policy':
+            return MaterialPageRoute(builder: (context) => const PolicyScreen());
+          case '/settings':
+            return MaterialPageRoute(builder: (context) => const SettingsScreen());
+          default:
+            return MaterialPageRoute(builder: (context) => const LandingScreen());
+        }
       },
     );
   }

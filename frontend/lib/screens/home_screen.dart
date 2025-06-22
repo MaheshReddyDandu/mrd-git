@@ -10,7 +10,6 @@ import '../services/api_service.dart';
 import 'organization/organization_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
 import 'policy_management/policy_management_dashboard.dart';
-import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,9 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Clear token
     await ApiService.clearToken();
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      Navigator.of(context).pushReplacementNamed('/');
     }
   }
 
